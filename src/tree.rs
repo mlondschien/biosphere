@@ -2,9 +2,9 @@ use crate::argsort::argsort;
 use ndarray::{s, Array1, Array2, Axis};
 
 #[allow(dead_code)]
-struct DecisionTree {
-    X: Array2<f64>,
-    y: Array1<f64>,
+struct DecisionTree<'a> {
+    X: &'a Array2<f64>,
+    y: &'a Array1<f64>,
     max_depth: usize,
     features: Vec<usize>,
     // order: Vec<Array1<f64>>,
@@ -12,7 +12,7 @@ struct DecisionTree {
     // indices_oob: Vec<usize>,
 }
 
-impl DecisionTree {
+impl<'a> DecisionTree<'a> {
     #[allow(dead_code)]
     fn find_best_split(&self, feature: usize, in_bag_indices: &[usize]) -> (usize, f64, f64) {
         let n = in_bag_indices.len();
@@ -129,8 +129,8 @@ mod tests {
             .to_owned();
         let y = arr1(&[0., 0., 2., 1., 2., 2.]);
         let tree = DecisionTree {
-            X,
-            y,
+            X: &X,
+            y: &y,
             max_depth: 1,
             features: vec![0, 1],
         };
@@ -165,8 +165,8 @@ mod tests {
         let oob_indices = vec![3, 4, 10, 13];
 
         let tree = DecisionTree {
-            X,
-            y,
+            X: &X,
+            y: &y,
             max_depth: 3,
             features: vec![0, 1],
         };
