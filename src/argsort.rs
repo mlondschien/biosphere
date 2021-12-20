@@ -11,7 +11,7 @@ where
 
 /// Compute `indices` such that `data[indices]` is sorted.
 #[allow(dead_code)]
-fn argsort<T>(data: &[T]) -> Vec<usize>
+pub fn argsort<T>(data: &[T]) -> Vec<usize>
 where
     T: std::cmp::PartialOrd,
 {
