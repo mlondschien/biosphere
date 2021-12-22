@@ -23,10 +23,14 @@ pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
 }
 
 #[allow(dead_code)]
-pub fn sample_indices_from_weights(weights: &[usize], indices: &[Vec<usize>]) -> Vec<Vec<usize>> {
-    let mut samples = Vec::<Vec<usize>>::with_capacity(indices.len());
+pub fn sample_indices_from_weights(
+    weights: &[usize],
+    indices: &[Vec<usize>],
+    features: &[usize],
+) -> Vec<Vec<usize>> {
+    let mut samples = Vec::<Vec<usize>>::with_capacity(features.len());
 
-    for idx in 0..indices.len() {
+    for &idx in features {
         let mut sample = Vec::<usize>::with_capacity(indices[idx].len());
         for jdx in 0..indices[idx].len() {
             for _ in 0..weights[indices[idx][jdx]] {
@@ -36,6 +40,18 @@ pub fn sample_indices_from_weights(weights: &[usize], indices: &[Vec<usize>]) ->
         samples.push(sample);
     }
     samples
+}
+
+#[allow(dead_code)]
+pub fn oob_samples_from_weights(weights: &[usize]) -> Vec<usize> {
+    let mut oob_samples = Vec::<usize>::with_capacity(weights.len());
+
+    for (idx, &weight) in weights.iter().enumerate() {
+        if weight == 0 {
+            oob_samples.push(idx);
+        }
+    }
+    oob_samples
 }
 
 #[cfg(test)]
@@ -75,7 +91,7 @@ mod tests {
         let seed = 7;
         let mut rng = StdRng::seed_from_u64(seed);
         let n = 100;
-        let d = 5;
+        let d = 8;
 
         let X = Array::random_using((n, d), Uniform::new(0., 1.), &mut rng);
         let mut indices = Vec::<Vec<usize>>::with_capacity(d);
@@ -86,12 +102,13 @@ mod tests {
 
         let weights = sample_weights(n, &mut rng);
 
-        let samples = sample_indices_from_weights(&weights, &indices);
+        let features = &[0, 2, 3, 4, 6];
+        let samples = sample_indices_from_weights(&weights, &indices, features);
 
-        for idx in 0..d {
+        for (feature_idx, &feature) in features.iter().enumerate() {
             assert!(is_sorted(
-                X.slice(s![.., idx])
-                    .select(Axis(0), &samples[idx])
+                X.slice(s![.., feature])
+                    .select(Axis(0), &samples[feature_idx])
                     .as_slice()
                     .unwrap()
             ));
