@@ -13,11 +13,11 @@ impl<'a> DecisionTree<'a> {
         &self,
         samples: Vec<Vec<usize>>,
         oob_samples: &'a mut [usize],
-        features: Vec<usize>,
+        features: &[usize],
         depth: usize,
-    ) -> Vec<(&'a [usize], f64)> {
+    ) -> Vec<(Vec<usize>, f64)> {
         if depth >= self.max_depth || samples[0].len() <= 2 {
-            return vec![(oob_samples, mean(self.y, &samples[0]))];
+            return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
         }
 
         let mut best_gain = 0.;
@@ -38,7 +38,7 @@ impl<'a> DecisionTree<'a> {
         }
 
         if best_gain <= 0. {
-            return vec![(oob_samples, mean(self.y, &samples[0]))];
+            return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
         }
 
         let (left_samples, right_samples) =
@@ -46,7 +46,7 @@ impl<'a> DecisionTree<'a> {
         let (left_oob_samples, right_oob_samples) =
             split_oob_samples(oob_samples, self.X, best_feature, best_split_val);
 
-        let mut left = self.split(left_samples, left_oob_samples, features.clone(), depth + 1);
+        let mut left = self.split(left_samples, left_oob_samples, features, depth + 1);
         let mut right = self.split(right_samples, right_oob_samples, features, depth + 1);
         left.append(&mut right);
         left
@@ -391,12 +391,12 @@ mod tests {
             y: &y,
             max_depth: 8,
         };
-        let result = tree.split(samples, &mut oob_samples, vec![0, 1, 2, 3], 0);
+        let result = tree.split(samples, &mut oob_samples, &[0, 1, 2, 3], 0);
 
         let mut predictions = Array1::zeros(stop - start);
         for (idxs, val) in result.iter() {
-            for idx in *idxs {
-                predictions[*idx - start] = *val;
+            for idx in idxs {
+                predictions[idx - start] = *val;
             }
         }
 
