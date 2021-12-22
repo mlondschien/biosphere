@@ -8,9 +8,9 @@ name = "oobforest"
 
 [dependencies]
 ndarray = "0.15.3"
+rand = "0.8.4"
 
 [dev-dependencies]
-rand = "0.8.4"
 rstest = "0.11.0"
 assert_approx_eq = "1.1.0"
 ndarray-rand = "0.14.0"
