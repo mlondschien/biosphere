@@ -37,8 +37,6 @@ impl<'a> DecisionTree<'a> {
                 best_feature = *feature;
             }
         }
-        // println!("samples: {:?}", &samples);
-        // println!("best_gain: {}, best_split: {}, best_split_val: {}, best_feature: {}", best_gain, best_split, best_split_val, best_feature);
 
         if best_gain <= 0. {
             return vec![(oob_samples, mean(self.y, &samples[0]))];
@@ -46,17 +44,11 @@ impl<'a> DecisionTree<'a> {
 
         let (left_samples, right_samples) =
             split_samples(samples, best_split, self.X, best_feature, best_split_val);
-        // println!("left_samples: {:?}", &left_samples);
-        // println!("right_samples: {:?}", &right_samples);
-        // println!("\n");
         let (left_oob_samples, right_oob_samples) =
             split_oob_samples(oob_samples, self.X, best_feature, best_split_val);
 
         let mut left = self.split(left_samples, left_oob_samples, features.clone(), depth + 1);
         let mut right = self.split(right_samples, right_oob_samples, features, depth + 1);
-        // println!("left: {:?}", &left);
-        // println!("right: {:?}", &right);
-        // println!("\n");
         left.append(&mut right);
         left
     }
