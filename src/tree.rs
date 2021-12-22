@@ -93,7 +93,6 @@ fn find_best_split(
     let mut cumsum = y.select(Axis(0), samples);
     cumsum.accumulate_axis_inplace(Axis(0), |&prev, cur| *cur += prev);
 
-    println!("{:?}", cumsum);
     let mut max_gain = 0.;
     let mut gain: f64;
     let mut split = 0;
@@ -104,7 +103,6 @@ fn find_best_split(
     for s in 1..n {
         sum_times_s_by_n += sum_by_n;
         gain = (sum_times_s_by_n - cumsum[s - 1]).powi(2) / (s * (n - s)) as f64;
-        println!("s:{}, gain:{:?}", s, gain);
         if gain > max_gain {
             max_gain = gain;
             split = s;
@@ -161,26 +159,20 @@ fn split_samples(
     best_split_val: f64,
 ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
     let n_features = samples.len();
-    let n = samples[0].len(); // Unequal to X.shape()[0];
-    let right_size = n - left_size;
+    let n_samples = samples[0].len();
+    let right_size = n_samples - left_size;
 
     let mut left_samples = vec![Vec::<usize>::with_capacity(left_size); n_features];
     let mut right_samples = vec![Vec::<usize>::with_capacity(right_size); n_features];
 
     let mut sample: usize;
-
     for feature_idx in 0..n_features {
-        let mut left_idx: usize = 0;
-        let mut right_idx: usize = 0;
-
-        for idx in 0..n {
+        for idx in 0..n_samples {
             sample = samples[feature_idx][idx];
             if X[[sample, best_feature]] <= best_split_val {
-                left_samples[feature_idx][left_idx] = sample;
-                left_idx += 1;
+                left_samples[feature_idx].push(sample);
             } else {
-                right_samples[feature_idx][right_idx] = sample;
-                right_idx += 1;
+                right_samples[feature_idx].push(sample);
             }
         }
     }
@@ -265,6 +257,85 @@ mod tests {
     fn test_mean(#[case] y: &[f64], #[case] samples: &[usize], #[case] expected_mean: f64) {
         let y = arr1(y);
         assert_approx_eq!(expected_mean, mean(&y, samples));
+    }
+
+    #[rstest]
+    #[case(&[0, 1, 2, 3, 4, 5], 0, 2.5)]
+    #[case(&[0, 1, 1, 2, 5], 0, 2.5)]
+    #[case(&[0, 0, 0, 1, 1, 2, 4, 4, 4, 4, 5], 0, 2.5)]
+    //
+    #[case(&[0, 1, 2, 3, 4, 5], 0, 0.5)]
+    #[case(&[0, 1, 2, 3, 4, 5], 0, 0.)]
+    #[case(&[0, 1, 2, 3, 4, 5], 0, -1.)]
+    #[case(&[0, 1, 2, 3, 4, 5], 0, 5.)]
+    //
+    #[case(&[0, 1, 2, 3, 4, 5], 1, 0.25)]
+    #[case(&[0, 0, 0, 0, 2, 3, 4, 5], 1, 0.25)]
+    #[case(&[0, 0, 0, 0, 2, 3, 4, 5], 1, 0.75)]
+    fn test_split_samples(
+        #[case] sample_counts: &[usize],
+        #[case] best_feature: usize,
+        #[case] best_split_val: f64,
+    ) {
+        let X = arr2(&[
+            [0., 0.],
+            [1., -1.],
+            [2., 0.],
+            [3., -4.],
+            [4., 4.],
+            [5., 0.5],
+        ]);
+        let n_features = X.shape()[1];
+
+        let mut samples: Vec<Vec<usize>> = vec![];
+        for feature_idx in 0..n_features {
+            let mut sample = sample_counts.to_vec();
+            sample.sort_by(|&idx1, &idx2| {
+                X[[idx1, feature_idx]]
+                    .partial_cmp(&X[[idx2, feature_idx]])
+                    .unwrap()
+            });
+            assert!(is_sorted(
+                X.slice(s![.., feature_idx])
+                    .select(Axis(0), &sample)
+                    .as_slice()
+                    .unwrap()
+            ));
+            samples.push(sample);
+        }
+
+        // left_size is only used for efficient memory allocation.
+        let (left_samples, right_samples) =
+            split_samples(samples, 0, &X, best_feature, best_split_val);
+
+        for feature_idx in 0..n_features {
+            assert!(is_sorted(
+                X.slice(s![.., feature_idx])
+                    .select(Axis(0), &left_samples[feature_idx])
+                    .as_slice()
+                    .unwrap()
+            ));
+            assert!(is_sorted(
+                X.slice(s![.., feature_idx])
+                    .select(Axis(0), &right_samples[feature_idx])
+                    .as_slice()
+                    .unwrap()
+            ));
+
+            for idx in left_samples[feature_idx].iter() {
+                assert!(X[[*idx, best_feature]] <= best_split_val);
+            }
+
+            for idx in right_samples[feature_idx].iter() {
+                assert!(X[[*idx, best_feature]] > best_split_val);
+            }
+
+            // Assert set(left_sample[feature_idx]) + set(right_sample[feature_idx]) == set(sample_counts)
+            let mut full_sample = left_samples[feature_idx].clone();
+            full_sample.append(&mut right_samples[feature_idx].clone());
+            full_sample.sort();
+            assert_eq!(full_sample, sample_counts);
+        }
     }
     // #[test]
     // fn test_split() {
