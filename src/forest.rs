@@ -9,12 +9,12 @@ use rand::Rng;
 use rand::SeedableRng;
 
 pub struct RandomForest<'a> {
-    X: &'a ArrayView2<'a, f64>,
-    y: &'a ArrayView1<'a, f64>,
-    n_trees: usize,
-    max_depth: usize,
-    mtry: usize,
-    seed: u64,
+    pub X: &'a ArrayView2<'a, f64>,
+    pub y: &'a ArrayView1<'a, f64>,
+    pub n_trees: usize,
+    pub max_depth: usize,
+    pub mtry: usize,
+    pub seed: u64,
 }
 
 impl<'a> RandomForest<'a> {
