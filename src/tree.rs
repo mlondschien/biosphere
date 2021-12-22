@@ -6,10 +6,6 @@ pub struct DecisionTree<'a> {
     y: &'a Array1<f64>,
     max_depth: usize,
     features: Vec<usize>,
-    /// For each feature contains `indices` s.t. `X[indices, feature]` is sorted.
-    ordering: Vec<Vec<usize>>,
-    // indices: Vec<usize>,
-    // indices_oob: Vec<usize>,
 }
 
 impl<'a> DecisionTree<'a> {
@@ -41,6 +37,8 @@ impl<'a> DecisionTree<'a> {
                 best_feature = *feature;
             }
         }
+        // println!("samples: {:?}", &samples);
+        // println!("best_gain: {}, best_split: {}, best_split_val: {}, best_feature: {}", best_gain, best_split, best_split_val, best_feature);
 
         if best_gain <= 0. {
             return vec![(oob_samples, mean(self.y, &samples[0]))];
@@ -48,12 +46,17 @@ impl<'a> DecisionTree<'a> {
 
         let (left_samples, right_samples) =
             split_samples(samples, best_split, self.X, best_feature, best_split_val);
+        // println!("left_samples: {:?}", &left_samples);
+        // println!("right_samples: {:?}", &right_samples);
+        // println!("\n");
         let (left_oob_samples, right_oob_samples) =
             split_oob_samples(oob_samples, self.X, best_feature, best_split_val);
 
         let mut left = self.split(left_samples, left_oob_samples, features.clone(), depth + 1);
         let mut right = self.split(right_samples, right_oob_samples, features, depth + 1);
-
+        // println!("left: {:?}", &left);
+        // println!("right: {:?}", &right);
+        // println!("\n");
         left.append(&mut right);
         left
     }
@@ -189,13 +192,25 @@ fn split_oob_samples<'a>(
     let mut left_idx = 0;
     let mut right_idx = oob_samples.len() - 1;
 
-    while left_idx < right_idx {
-        if X[[oob_samples[left_idx], best_feature]] <= best_split_val {
+    'outer: loop {
+        while X[[oob_samples[left_idx], best_feature]] <= best_split_val {
             left_idx += 1;
-        } else {
-            oob_samples.swap(left_idx, right_idx);
-            right_idx -= 1;
+            if left_idx == right_idx {
+                break 'outer;
+            }
         }
+        while X[[oob_samples[right_idx], best_feature]] > best_split_val {
+            right_idx -= 1;
+            if left_idx == right_idx {
+                break 'outer;
+            }
+        }
+
+        oob_samples.swap(left_idx, right_idx);
+    }
+
+    if X[[oob_samples[left_idx], best_feature]] <= best_split_val {
+        left_idx += 1;
     }
 
     oob_samples.split_at_mut(left_idx)
@@ -337,49 +352,101 @@ mod tests {
             assert_eq!(full_sample, sample_counts);
         }
     }
-    // #[test]
-    // fn test_split() {
-    //     let X = arr2(&[
-    //         [0., 0.],
-    //         [0., 2.],
-    //         [0., 4.],
-    //         [0., 5.],
-    //         [1., 1.],
-    //         [2., 2.],
-    //         [2., 3.],
-    //         [2., 4.],
-    //         [3., 1.],
-    //         [3., 5.],
-    //         [4., 0.],
-    //         [4., 2.],
-    //         [4., 3.],
-    //         [4., 4.],
-    //     ]);
-    //     let y = arr1(&[1., 1., 2., 2., 1., 1., 2., 2., 0., -1., 0., 0., -1., -1.]);
 
-    //     let in_bag_indices = vec![0, 1, 2, 5, 6, 7, 8, 9, 11, 12];
-    //     let oob_indices = vec![3, 4, 10, 13];
+    #[rstest]
+    #[case(&mut [0, 1], &mut [0], &mut [1], 0, 0.5)]
+    #[case(&mut [0, 1], &mut [0, 1], &mut [], 0, 1.5)]
+    #[case(&mut [0, 1], &mut [], &mut [0, 1], 0, -1.)]
+    #[case(&mut [0, 1, 1, 2, 3], &mut [], &mut [0, 1, 1, 2, 3], 0, -1.)]
+    #[case(&mut [0, 1, 1, 2, 3], &mut [0, 1, 1, 2, 3], &mut [], 0, 10.)]
+    #[case(&mut [0, 3, 3, 2, 1], &mut [0, 1], &mut [3, 2, 3], 0, 1.5)]
+    #[case(&mut [0, 1, 2, 3, 4, 5], &mut [0, 1, 2, 3], &mut [4, 5], 1, 0.25)]
+    #[case(&mut [0, 2, 3, 0, 1, 4, 5], &mut [0, 2, 3, 0, 1], &mut [4, 5], 1, 0.25)]
+    fn test_split_oob_samples(
+        #[case] samples: &mut [usize],
+        #[case] expected_left: &mut [usize],
+        #[case] expected_right: &mut [usize],
+        #[case] best_feature: usize,
+        #[case] best_val: f64,
+    ) {
+        let X = arr2(&[
+            [0., 0.],
+            [1., -1.],
+            [2., 0.],
+            [3., -4.],
+            [4., 4.],
+            [5., 0.5],
+        ]);
 
-    //     let tree = DecisionTree {
-    //         X: &X,
-    //         y: &y,
-    //         max_depth: 3,
-    //         features: vec![0, 1],
-    //         ordering: vec![vec![1, 1]; 1],
-    //     };
+        let (left_samples, right_samples) = split_oob_samples(samples, &X, best_feature, best_val);
 
-    //     let result = tree.split(in_bag_indices, oob_indices, 0);
+        assert_eq!(
+            (left_samples, right_samples),
+            (expected_left, expected_right)
+        );
+    }
 
-    //     let mut predictions = vec![-7.; 14];
-    //     for (idxs, prediction) in result.iter() {
-    //         for idx in idxs {
-    //             predictions[*idx] = *prediction;
-    //         }
-    //     }
+    #[test]
+    fn test_split() {
+        let X = arr2(&[
+            [0., 0.],
+            [0., 2.],
+            [0., 4.],
+            [0., 5.],
+            [1., 1.],
+            [2., 2.],
+            [2., 3.],
+            [2., 4.],
+            [3., 1.],
+            [3., 5.],
+            [4., 0.],
+            [4., 2.],
+            [4., 3.],
+            [4., 4.],
+        ]);
+        let y = arr1(&[1., 1., 2., 2., 1., 1., 2., 2., 0., -1., 0., 0., -1., -1.]);
+        let features: Vec<usize> = (0..2).collect();
+        let in_bag_indices = vec![
+            0, 0, 1, 1, 2, 2, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 11, 11, 12, 12,
+        ];
+        let mut oob_samples = vec![3, 4, 10, 13];
 
-    //     assert_eq!(
-    //         predictions,
-    //         vec![-7., -7., -7., 2.0, 1.0, -7., -7., -7., -7., -7., 0., -7., -7., -1.,]
-    //     );
-    // }
+        let mut samples: Vec<Vec<usize>> = vec![];
+        for feature_idx in 0..features.len() {
+            let mut sample = in_bag_indices.to_vec();
+            sample.sort_by(|&idx1, &idx2| {
+                X[[idx1, feature_idx]]
+                    .partial_cmp(&X[[idx2, feature_idx]])
+                    .unwrap()
+            });
+            assert!(is_sorted(
+                X.slice(s![.., feature_idx])
+                    .select(Axis(0), &sample)
+                    .as_slice()
+                    .unwrap()
+            ));
+            samples.push(sample);
+        }
+
+        let tree = DecisionTree {
+            X: &X,
+            y: &y,
+            max_depth: 3,
+            features: features.clone(),
+        };
+
+        let result = tree.split(samples, &mut oob_samples, features, 0);
+
+        let mut predictions = vec![-7.; 14];
+        for (idxs, prediction) in result.iter() {
+            for idx in idxs.iter() {
+                predictions[*idx] = *prediction;
+            }
+        }
+
+        assert_eq!(
+            predictions,
+            vec![-7., -7., -7., 2.0, 1.0, -7., -7., -7., -7., -7., 0., -7., -7., -1.,]
+        );
+    }
 }
