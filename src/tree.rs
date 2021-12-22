@@ -257,6 +257,15 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0.5)]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0], 0.)]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 3], 0.5)]
+    #[case(&[-1., 0., 1., 2., 3., 4.], &[0, 0, 1, 5], 0.5)]
+    fn test_mean(#[case] y: &[f64], #[case] samples: &[usize], #[case] expected_mean: f64) {
+        let y = arr1(y);
+        assert_approx_eq!(expected_mean, mean(&y, samples));
+    }
     // #[test]
     // fn test_split() {
     //     let X = arr2(&[
