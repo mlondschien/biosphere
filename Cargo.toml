@@ -15,3 +15,5 @@ rstest = "0.11.0"
 assert_approx_eq = "1.1.0"
 ndarray-rand = "0.14.0"
 ndarray = { version = "0.15.3", features = ["approx"] }
+csv = "^1"
+ndarray-csv = "^0.5"

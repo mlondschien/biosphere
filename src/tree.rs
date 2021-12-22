@@ -2,15 +2,15 @@ use ndarray::{Array1, Array2, Axis};
 
 #[allow(dead_code)]
 pub struct DecisionTree<'a> {
-    X: &'a Array2<f64>,
-    y: &'a Array1<f64>,
-    max_depth: usize,
-    features: Vec<usize>,
+    pub X: &'a Array2<f64>,
+    pub y: &'a Array1<f64>,
+    pub max_depth: usize,
+    pub features: Vec<usize>,
 }
 
 impl<'a> DecisionTree<'a> {
     #[allow(dead_code)]
-    fn split(
+    pub fn split(
         &self,
         samples: Vec<Vec<usize>>,
         oob_samples: &'a mut [usize],
@@ -219,7 +219,7 @@ fn split_oob_samples<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::is_sorted;
+    use crate::testing::{arrange_samples, is_sorted};
     use assert_approx_eq::*;
     use ndarray::{arr1, arr2, s};
     use rstest::*;
@@ -300,30 +300,15 @@ mod tests {
             [4., 4.],
             [5., 0.5],
         ]);
-        let n_features = X.shape()[1];
+        let features = (0..X.shape()[1]).collect::<Vec<_>>();
 
-        let mut samples: Vec<Vec<usize>> = vec![];
-        for feature_idx in 0..n_features {
-            let mut sample = sample_counts.to_vec();
-            sample.sort_by(|&idx1, &idx2| {
-                X[[idx1, feature_idx]]
-                    .partial_cmp(&X[[idx2, feature_idx]])
-                    .unwrap()
-            });
-            assert!(is_sorted(
-                X.slice(s![.., feature_idx])
-                    .select(Axis(0), &sample)
-                    .as_slice()
-                    .unwrap()
-            ));
-            samples.push(sample);
-        }
+        let samples = arrange_samples(sample_counts, &features, &X);
 
         // left_size is only used for efficient memory allocation.
         let (left_samples, right_samples) =
             split_samples(samples, 0, &X, best_feature, best_split_val);
 
-        for feature_idx in 0..n_features {
+        for feature_idx in features {
             assert!(is_sorted(
                 X.slice(s![.., feature_idx])
                     .select(Axis(0), &left_samples[feature_idx])
@@ -411,22 +396,7 @@ mod tests {
         ];
         let mut oob_samples = vec![3, 4, 10, 13];
 
-        let mut samples: Vec<Vec<usize>> = vec![];
-        for feature_idx in 0..features.len() {
-            let mut sample = in_bag_indices.to_vec();
-            sample.sort_by(|&idx1, &idx2| {
-                X[[idx1, feature_idx]]
-                    .partial_cmp(&X[[idx2, feature_idx]])
-                    .unwrap()
-            });
-            assert!(is_sorted(
-                X.slice(s![.., feature_idx])
-                    .select(Axis(0), &sample)
-                    .as_slice()
-                    .unwrap()
-            ));
-            samples.push(sample);
-        }
+        let samples = arrange_samples(&in_bag_indices, &features, &X);
 
         let tree = DecisionTree {
             X: &X,
