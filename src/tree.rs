@@ -3,7 +3,7 @@ use ndarray::{ArrayView1, ArrayView2, Axis};
 pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
     pub y: &'a ArrayView1<'a, f64>,
-    pub max_depth: usize,
+    pub max_depth: Option<u16>,
 }
 
 impl<'a> DecisionTree<'a> {
@@ -12,13 +12,13 @@ impl<'a> DecisionTree<'a> {
         samples: Vec<Vec<usize>>,
         oob_samples: &mut [usize],
         features: &[usize],
-        depth: usize,
+        depth: u16,
     ) -> Vec<(Vec<usize>, f64)> {
         if oob_samples.is_empty() {
             return vec![];
         }
 
-        if depth >= self.max_depth || samples[0].len() <= 2 {
+        if (self.max_depth.is_some() && depth >= self.max_depth.unwrap()) || samples[0].len() <= 2 {
             return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
         }
 
@@ -387,7 +387,7 @@ mod tests {
         let tree = DecisionTree {
             X: &X,
             y: &y,
-            max_depth: 8,
+            max_depth: Some(8),
         };
         let result = tree.split(samples, &mut oob_samples, &[0, 1, 2, 3], 0);
 
