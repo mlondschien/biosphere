@@ -14,6 +14,10 @@ impl<'a> DecisionTree<'a> {
         features: &[usize],
         depth: usize,
     ) -> Vec<(Vec<usize>, f64)> {
+        if oob_samples.is_empty() {
+            return vec![];
+        }
+
         if depth >= self.max_depth || samples[0].len() <= 2 {
             return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
         }
@@ -181,21 +185,23 @@ fn split_oob_samples<'a>(
     let mut left_idx = 0;
     let mut right_idx = oob_samples.len() - 1;
 
-    'outer: loop {
-        while X[[oob_samples[left_idx], best_feature]] <= best_split_val {
-            left_idx += 1;
-            if left_idx == right_idx {
-                break 'outer;
+    if right_idx > 0 {
+        'outer: loop {
+            while X[[oob_samples[left_idx], best_feature]] <= best_split_val {
+                left_idx += 1;
+                if left_idx == right_idx {
+                    break 'outer;
+                }
             }
-        }
-        while X[[oob_samples[right_idx], best_feature]] > best_split_val {
-            right_idx -= 1;
-            if left_idx == right_idx {
-                break 'outer;
+            while X[[oob_samples[right_idx], best_feature]] > best_split_val {
+                right_idx -= 1;
+                if left_idx == right_idx {
+                    break 'outer;
+                }
             }
-        }
 
-        oob_samples.swap(left_idx, right_idx);
+            oob_samples.swap(left_idx, right_idx);
+        }
     }
 
     if X[[oob_samples[left_idx], best_feature]] <= best_split_val {
