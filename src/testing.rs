@@ -1,9 +1,11 @@
-use ndarray::{s, ArrayView2, Axis};
+use csv::ReaderBuilder;
+use ndarray::{s, Array2, ArrayView2, Axis};
+use ndarray_csv::Array2Reader;
+use std::fs::File;
 
 /// Check if input is sorted. Used for testing.
 ///
 /// From https://stackoverflow.com/questions/51272571/how-do-i-check-if-a-slice-is-sorted.
-#[allow(dead_code)]
 pub fn is_sorted<T>(data: &[T]) -> bool
 where
     T: std::cmp::PartialOrd,
@@ -33,4 +35,11 @@ pub fn arrange_samples(
         samples_out.push(sample);
     }
     samples_out
+}
+
+pub fn load_iris() -> Array2<f64> {
+    let file = File::open("testdata/iris.csv").unwrap();
+    let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
+    let data: Array2<f64> = reader.deserialize_array2((150, 5)).unwrap();
+    data
 }
