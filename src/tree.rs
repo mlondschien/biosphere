@@ -5,7 +5,6 @@ pub struct DecisionTree<'a> {
     pub X: &'a Array2<f64>,
     pub y: &'a Array1<f64>,
     pub max_depth: usize,
-    pub features: Vec<usize>,
 }
 
 impl<'a> DecisionTree<'a> {
@@ -26,7 +25,7 @@ impl<'a> DecisionTree<'a> {
         let mut best_split_val = 0.;
         let mut best_feature = 0;
 
-        for (feature_idx, feature) in self.features.iter().enumerate() {
+        for (feature_idx, feature) in features.iter().enumerate() {
             let (split, split_val, gain) =
                 find_best_split(self.X, self.y, *feature, &samples[feature_idx]);
 
@@ -129,7 +128,7 @@ fn mean(y: &Array1<f64>, samples: &[usize]) -> f64 {
 /// Parameters:
 /// -----------
 /// samples:
-///     For each `feature` in `self.features`, this should contain indices such that
+///     For each `feature` in `features`, this should contain indices such that
 ///     `self.X[samples[feature_idx], feature]` is sorted.
 /// left_size:
 ///     Expected number of samples expected in `left_sample` output. Supplying this
@@ -385,7 +384,6 @@ mod tests {
             X: &X,
             y: &y,
             max_depth: 8,
-            features: vec![0, 1, 2, 3],
         };
         let result = tree.split(samples, &mut oob_samples, vec![0, 1, 2, 3], 0);
 

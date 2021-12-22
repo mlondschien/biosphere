@@ -4,5 +4,5 @@ pub use tree::DecisionTree;
 mod argsort;
 mod tree;
 
-// #[cfg(test)]
-pub mod testing;
+#[cfg(test)]
+mod testing;
