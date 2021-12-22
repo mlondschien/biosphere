@@ -12,7 +12,7 @@ impl<'a> DecisionTree<'a> {
     pub fn split(
         &self,
         samples: Vec<Vec<usize>>,
-        oob_samples: &'a mut [usize],
+        oob_samples: &mut [usize],
         features: &[usize],
         depth: usize,
     ) -> Vec<(Vec<usize>, f64)> {
@@ -210,13 +210,10 @@ fn split_oob_samples<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{arrange_samples, is_sorted};
+    use crate::testing::{arrange_samples, is_sorted, load_iris};
     use assert_approx_eq::*;
-    use csv::ReaderBuilder;
-    use ndarray::{arr1, arr2, s, Array1, Array2};
-    use ndarray_csv::Array2Reader;
+    use ndarray::{arr1, arr2, s, Array1};
     use rstest::*;
-    use std::fs::File;
 
     #[rstest]
     #[case(&[0., 0., 0., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0, 3, 2.5, 0.25)]
@@ -376,10 +373,7 @@ mod tests {
     #[case(50, 150)]
     #[case(0, 150)]
     fn test_tree_split(#[case] start: usize, #[case] stop: usize) {
-        let file = File::open("testdata/iris.csv").unwrap();
-        let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
-        let data: Array2<f64> = reader.deserialize_array2((150, 5)).unwrap();
-
+        let data = load_iris();
         let X = data.slice(s![.., 0..4]);
         let y = data.slice(s![.., 4]);
 

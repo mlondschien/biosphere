@@ -4,5 +4,6 @@ pub use tree::DecisionTree;
 mod tree;
 mod utils;
 
+mod forest;
 #[cfg(test)]
 mod testing;

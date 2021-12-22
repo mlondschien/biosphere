@@ -25,7 +25,7 @@ pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
 #[allow(dead_code)]
 pub fn sample_indices_from_weights(
     weights: &[usize],
-    indices: Vec<Vec<usize>>,
+    indices: &[Vec<usize>],
     features: &[usize],
 ) -> Vec<Vec<usize>> {
     let mut samples = Vec::<Vec<usize>>::with_capacity(features.len());
@@ -103,7 +103,7 @@ mod tests {
         let weights = sample_weights(n, &mut rng);
 
         let features = &[0, 2, 3, 4, 6];
-        let samples = sample_indices_from_weights(&weights, indices, features);
+        let samples = sample_indices_from_weights(&weights, &indices, features);
 
         for (feature_idx, &feature) in features.iter().enumerate() {
             assert!(is_sorted(
