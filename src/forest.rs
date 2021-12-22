@@ -8,7 +8,7 @@ use rand::seq::IteratorRandom;
 use rand::Rng;
 use rand::SeedableRng;
 
-struct RandomForest<'a> {
+pub struct RandomForest<'a> {
     X: &'a ArrayView2<'a, f64>,
     y: &'a ArrayView1<'a, f64>,
     n_trees: usize,
@@ -18,8 +18,7 @@ struct RandomForest<'a> {
 }
 
 impl<'a> RandomForest<'a> {
-    #[allow(dead_code)]
-    fn predict(&self) -> Array1<f64> {
+    pub fn predict(&self) -> Array1<f64> {
         let mut rng = SmallRng::seed_from_u64(self.seed);
 
         let n = self.X.nrows();

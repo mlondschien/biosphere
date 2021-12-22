@@ -1,7 +1,6 @@
 use rand::Rng;
 
 /// Compute `indices` such that `data[indices]` is sorted.
-#[allow(dead_code)]
 pub fn argsort<T>(data: &[T]) -> Vec<usize>
 where
     T: std::cmp::PartialOrd,
@@ -11,7 +10,6 @@ where
     indices
 }
 
-#[allow(dead_code)]
 pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
     let mut counts = vec![0; n];
 
@@ -22,7 +20,6 @@ pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
     counts
 }
 
-#[allow(dead_code)]
 pub fn sample_indices_from_weights(
     weights: &[usize],
     indices: &[Vec<usize>],
@@ -42,7 +39,6 @@ pub fn sample_indices_from_weights(
     samples
 }
 
-#[allow(dead_code)]
 pub fn oob_samples_from_weights(weights: &[usize]) -> Vec<usize> {
     let mut oob_samples = Vec::<usize>::with_capacity(weights.len());
 

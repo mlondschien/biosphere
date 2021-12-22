@@ -1,6 +1,5 @@
 use ndarray::{ArrayView1, ArrayView2, Axis};
 
-#[allow(dead_code)]
 pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
     pub y: &'a ArrayView1<'a, f64>,
@@ -8,7 +7,6 @@ pub struct DecisionTree<'a> {
 }
 
 impl<'a> DecisionTree<'a> {
-    #[allow(dead_code)]
     pub fn split(
         &self,
         samples: Vec<Vec<usize>>,
