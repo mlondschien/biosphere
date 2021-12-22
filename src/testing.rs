@@ -1,4 +1,4 @@
-use ndarray::{s, Array2, Axis};
+use ndarray::{s, ArrayView2, Axis};
 
 /// Check if input is sorted. Used for testing.
 ///
@@ -11,7 +11,11 @@ where
     data.windows(2).all(|w| w[0] <= w[1])
 }
 
-pub fn arrange_samples(samples: &[usize], features: &[usize], X: &Array2<f64>) -> Vec<Vec<usize>> {
+pub fn arrange_samples(
+    samples: &[usize],
+    features: &[usize],
+    X: &ArrayView2<f64>,
+) -> Vec<Vec<usize>> {
     let mut samples_out: Vec<Vec<usize>> = vec![];
     for feature_idx in 0..features.len() {
         let mut sample = samples.to_vec();

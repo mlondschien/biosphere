@@ -1,9 +1,9 @@
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{ArrayView1, ArrayView2, Axis};
 
 #[allow(dead_code)]
 pub struct DecisionTree<'a> {
-    pub X: &'a Array2<f64>,
-    pub y: &'a Array1<f64>,
+    pub X: &'a ArrayView2<'a, f64>,
+    pub y: &'a ArrayView1<'a, f64>,
     pub max_depth: usize,
 }
 
@@ -77,8 +77,8 @@ impl<'a> DecisionTree<'a> {
 ///     Gain when splitting at split (or split_val).
 // TODO: Disallow split points for which X[split, feature] == X[split - 1, feature].
 fn find_best_split(
-    X: &Array2<f64>,
-    y: &Array1<f64>,
+    X: &ArrayView2<f64>,
+    y: &ArrayView1<f64>,
     feature: usize,
     samples: &[usize],
 ) -> (usize, f64, f64) {
@@ -115,7 +115,7 @@ fn find_best_split(
 }
 
 /// Calculate mean value of y[samples].
-fn mean(y: &Array1<f64>, samples: &[usize]) -> f64 {
+fn mean(y: &ArrayView1<f64>, samples: &[usize]) -> f64 {
     let mut sum = 0.;
     for idx in samples {
         sum += y[*idx];
@@ -148,7 +148,7 @@ fn mean(y: &Array1<f64>, samples: &[usize]) -> f64 {
 fn split_samples(
     samples: Vec<Vec<usize>>,
     left_size: usize,
-    X: &Array2<f64>,
+    X: &ArrayView2<f64>,
     best_feature: usize,
     best_split_val: f64,
 ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
@@ -176,7 +176,7 @@ fn split_samples(
 
 fn split_oob_samples<'a>(
     oob_samples: &'a mut [usize],
-    X: &'_ Array2<f64>,
+    X: &'_ ArrayView2<f64>,
     best_feature: usize,
     best_split_val: f64,
 ) -> (&'a mut [usize], &'a mut [usize]) {
@@ -213,7 +213,7 @@ mod tests {
     use crate::testing::{arrange_samples, is_sorted};
     use assert_approx_eq::*;
     use csv::ReaderBuilder;
-    use ndarray::{arr1, arr2, s, Array2};
+    use ndarray::{arr1, arr2, s, Array1, Array2};
     use ndarray_csv::Array2Reader;
     use rstest::*;
     use std::fs::File;
@@ -241,7 +241,9 @@ mod tests {
         #[case] expected_gain: f64,
     ) {
         let X = arr2(&[[0., 0.], [1., 0.], [2., 0.], [3., 0.], [4., 0.], [5., 1.]]);
+        let X_view = X.view();
         let y = arr1(y);
+        let y_view = y.view();
 
         assert!(is_sorted(
             &X.slice(s![.., feature])
@@ -250,7 +252,7 @@ mod tests {
                 .unwrap()
         ));
 
-        let (split, split_val, gain) = find_best_split(&X, &y, feature, samples);
+        let (split, split_val, gain) = find_best_split(&X_view, &y_view, feature, samples);
 
         assert_eq!(
             (expected_split, expected_split_val, expected_gain),
@@ -265,7 +267,8 @@ mod tests {
     #[case(&[-1., 0., 1., 2., 3., 4.], &[0, 0, 1, 5], 0.5)]
     fn test_mean(#[case] y: &[f64], #[case] samples: &[usize], #[case] expected_mean: f64) {
         let y = arr1(y);
-        assert_approx_eq!(expected_mean, mean(&y, samples));
+        let y_view = y.view();
+        assert_approx_eq!(expected_mean, mean(&y_view, samples));
     }
 
     #[rstest]
@@ -294,13 +297,14 @@ mod tests {
             [4., 4.],
             [5., 0.5],
         ]);
+        let X_view = X.view();
         let features = (0..X.shape()[1]).collect::<Vec<_>>();
 
-        let samples = arrange_samples(sample_counts, &features, &X);
+        let samples = arrange_samples(sample_counts, &features, &X_view);
 
         // left_size is only used for efficient memory allocation.
         let (left_samples, right_samples) =
-            split_samples(samples, 0, &X, best_feature, best_split_val);
+            split_samples(samples, 0, &X_view, best_feature, best_split_val);
 
         for feature_idx in features {
             assert!(is_sorted(
@@ -356,8 +360,10 @@ mod tests {
             [4., 4.],
             [5., 0.5],
         ]);
+        let X_view = X.view();
 
-        let (left_samples, right_samples) = split_oob_samples(samples, &X, best_feature, best_val);
+        let (left_samples, right_samples) =
+            split_oob_samples(samples, &X_view, best_feature, best_val);
 
         assert_eq!(
             (left_samples, right_samples),
@@ -374,8 +380,8 @@ mod tests {
         let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
         let data: Array2<f64> = reader.deserialize_array2((150, 5)).unwrap();
 
-        let X = data.slice(s![.., 0..4]).to_owned();
-        let y = data.slice(s![.., 4]).to_owned();
+        let X = data.slice(s![.., 0..4]);
+        let y = data.slice(s![.., 4]);
 
         let mut oob_samples = (start..stop).collect::<Vec<_>>();
         let samples = arrange_samples(&oob_samples, &[0, 1, 2, 3], &X);
