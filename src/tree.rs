@@ -61,7 +61,27 @@ impl<'a> DecisionTree<'a> {
 
 /// Find best split for y[samples] at X[samples, feature].
 ///
-/// X[samples, feature] is assumed to be sorted.
+/// Parameters
+/// ----------
+/// X
+///     2D array of shape (n_samples, n_features)
+/// y
+///     1D array of shape (n_samples)
+/// feature
+///     Index of feature for which to find the best split.
+/// samples:
+///     Indices of observations between which to find the best split. X[samples, feature]
+///     should be sorted.
+///
+/// Returns
+/// -------
+/// split
+///     Index of the best split. Left / right samples are samples[:split] and samples[split:].
+/// split_val
+///     Value at which to split. Equal to X[split, feature] / 2. + X[split - 1, feature].
+/// gain
+///     Gain when splitting at split (or split_val).
+// TODO: Disallow split points for which X[split, feature] == X[split - 1, feature].
 fn find_best_split(
     X: &Array2<f64>,
     y: &Array1<f64>,
@@ -73,6 +93,7 @@ fn find_best_split(
     let mut cumsum = y.select(Axis(0), samples);
     cumsum.accumulate_axis_inplace(Axis(0), |&prev, cur| *cur += prev);
 
+    println!("{:?}", cumsum);
     let mut max_gain = 0.;
     let mut gain: f64;
     let mut split = 0;
@@ -80,17 +101,24 @@ fn find_best_split(
     let mut sum_times_s_by_n = 0.; // s * cumsum[n - 1] / n
     let sum_by_n = cumsum[n - 1] / n as f64; // cumsum[n - 1] / n
 
-    for s in 1..(n - 1) {
+    for s in 1..n {
         sum_times_s_by_n += sum_by_n;
         gain = (sum_times_s_by_n - cumsum[s - 1]).powi(2) / (s * (n - s)) as f64;
-
+        println!("s:{}, gain:{:?}", s, gain);
         if gain > max_gain {
             max_gain = gain;
             split = s;
         }
     }
+    let split_val: f64;
 
-    let split_val = X[[samples[split], feature]] / 2. + X[[samples[split - 1], feature]] / 2.;
+    // TODO: The case split=0 is irrelevant. Get rid of the if/else.
+    if split != 0 {
+        split_val = X[[samples[split], feature]] / 2. + X[[samples[split - 1], feature]] / 2.;
+    } else {
+        split_val = X[[samples[0], feature]];
+    }
+
     (split, split_val, max_gain)
 }
 
@@ -117,6 +145,14 @@ fn mean(y: &Array1<f64>, samples: &[usize]) -> f64 {
 ///     Feature by which obervations are split.
 /// best_split_val:
 ///     Value for `best_feature` at which observations are split.
+///
+/// Returns:
+/// --------
+/// left_sample:
+///  
+/// right_sample:
+///
+// TODO: For the feature which was used to split, this is trivial / can be sped up.
 fn split_samples(
     samples: Vec<Vec<usize>>,
     left_size: usize,
@@ -173,81 +209,97 @@ fn split_oob_samples<'a>(
     oob_samples.split_at_mut(left_idx)
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::DecisionTree;
-//     use ndarray::{arr1, arr2};
-//     use rstest::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::is_sorted;
+    use assert_approx_eq::*;
+    use ndarray::{arr1, arr2, s};
+    use rstest::*;
 
-//     #[rstest]
-//     #[case(2, 1.5, 0)]
-//     #[case(3, 2.5, 1)]
-//     fn test_find_best_split(
-//         #[case] expected_split: usize,
-//         #[case] expected_split_val: f64,
-//         #[case] feature: usize,
-//     ) {
-//         let X = arr2(&[[0., 1., 2., 3., 4., 5.], [3., 3., 2., 1., 1., 4.]])
-//             .t()
-//             .to_owned();
-//         let y = arr1(&[0., 0., 2., 1., 2., 2.]);
-//         let tree = DecisionTree {
-//             X: &X,
-//             y: &y,
-//             max_depth: 1,
-//             features: vec![0, 1],
-//             ordering: vec![vec![1, 1]; 1],
-//         };
-//         let (split, split_val, _) = tree.find_best_split(feature, &[0, 1, 2, 3, 4, 5]);
+    #[rstest]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0, 3, 2.5, 0.25)]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 2, 4, 5], 0, 2, 3., 0.25)]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 0, 2, 3, 4, 5], 0, 3, 2.5, 0.25)]
+    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 0, 1, 2, 2, 3, 4, 4, 4, 5], 0, 5, 2.5, 0.25)]
+    //
+    #[case(&[0., 0., 0., 0., 0., 0.], &[0, 1, 2, 3, 4, 5], 0, 0, 0., 0.)]
+    //
+    #[case(&[7., 1., 1., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0, 1, 0.5, 5.)]
+    #[case(&[1., 1., 0., 0., 2., 2.], &[0, 1, 2, 3, 4, 5], 0, 4, 3.5, 0.5)]
+    // //
+    #[case(&[-5., -5., -5., -5., -5., 1.], &[0, 1, 2, 3, 4, 5], 1, 5, 0.5, 5.)]
+    #[case(&[-5., -5., -5., -5., -5., 1.], &[4, 3, 3, 1, 4, 5], 1, 5, 0.5, 5.)]
+    // TODO #[case(&[0., 1., 1., 1., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 1, 5, 0.5, 5.)]
+    fn test_find_best_split(
+        #[case] y: &[f64],
+        #[case] samples: &[usize],
+        #[case] feature: usize,
+        #[case] expected_split: usize,
+        #[case] expected_split_val: f64,
+        #[case] expected_gain: f64,
+    ) {
+        let X = arr2(&[[0., 0.], [1., 0.], [2., 0.], [3., 0.], [4., 0.], [5., 1.]]);
+        let y = arr1(y);
 
-//         assert_eq!(expected_split, split);
+        assert!(is_sorted(
+            &X.slice(s![.., feature])
+                .select(Axis(0), samples)
+                .as_slice()
+                .unwrap()
+        ));
 
-//         assert_eq!(expected_split_val, split_val);
-//     }
+        let (split, split_val, gain) = find_best_split(&X, &y, feature, samples);
 
-//     #[test]
-//     fn test_split() {
-//         let X = arr2(&[
-//             [0., 0.],
-//             [0., 2.],
-//             [0., 4.],
-//             [0., 5.],
-//             [1., 1.],
-//             [2., 2.],
-//             [2., 3.],
-//             [2., 4.],
-//             [3., 1.],
-//             [3., 5.],
-//             [4., 0.],
-//             [4., 2.],
-//             [4., 3.],
-//             [4., 4.],
-//         ]);
-//         let y = arr1(&[1., 1., 2., 2., 1., 1., 2., 2., 0., -1., 0., 0., -1., -1.]);
+        assert_eq!(
+            (expected_split, expected_split_val, expected_gain),
+            (split, split_val, gain)
+        );
+    }
 
-//         let in_bag_indices = vec![0, 1, 2, 5, 6, 7, 8, 9, 11, 12];
-//         let oob_indices = vec![3, 4, 10, 13];
+    // #[test]
+    // fn test_split() {
+    //     let X = arr2(&[
+    //         [0., 0.],
+    //         [0., 2.],
+    //         [0., 4.],
+    //         [0., 5.],
+    //         [1., 1.],
+    //         [2., 2.],
+    //         [2., 3.],
+    //         [2., 4.],
+    //         [3., 1.],
+    //         [3., 5.],
+    //         [4., 0.],
+    //         [4., 2.],
+    //         [4., 3.],
+    //         [4., 4.],
+    //     ]);
+    //     let y = arr1(&[1., 1., 2., 2., 1., 1., 2., 2., 0., -1., 0., 0., -1., -1.]);
 
-//         let tree = DecisionTree {
-//             X: &X,
-//             y: &y,
-//             max_depth: 3,
-//             features: vec![0, 1],
-//             ordering: vec![vec![1, 1]; 1],
-//         };
+    //     let in_bag_indices = vec![0, 1, 2, 5, 6, 7, 8, 9, 11, 12];
+    //     let oob_indices = vec![3, 4, 10, 13];
 
-//         let result = tree.split(in_bag_indices, oob_indices, 0);
+    //     let tree = DecisionTree {
+    //         X: &X,
+    //         y: &y,
+    //         max_depth: 3,
+    //         features: vec![0, 1],
+    //         ordering: vec![vec![1, 1]; 1],
+    //     };
 
-//         let mut predictions = vec![-7.; 14];
-//         for (idxs, prediction) in result.iter() {
-//             for idx in idxs {
-//                 predictions[*idx] = *prediction;
-//             }
-//         }
+    //     let result = tree.split(in_bag_indices, oob_indices, 0);
 
-//         assert_eq!(
-//             predictions,
-//             vec![-7., -7., -7., 2.0, 1.0, -7., -7., -7., -7., -7., 0., -7., -7., -1.,]
-//         );
-//     }
-// }
+    //     let mut predictions = vec![-7.; 14];
+    //     for (idxs, prediction) in result.iter() {
+    //         for idx in idxs {
+    //             predictions[*idx] = *prediction;
+    //         }
+    //     }
+
+    //     assert_eq!(
+    //         predictions,
+    //         vec![-7., -7., -7., 2.0, 1.0, -7., -7., -7., -7., -7., 0., -7., -7., -1.,]
+    //     );
+    // }
+}
