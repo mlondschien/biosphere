@@ -213,8 +213,11 @@ mod tests {
     use super::*;
     use crate::testing::{arrange_samples, is_sorted};
     use assert_approx_eq::*;
-    use ndarray::{arr1, arr2, s};
+    use csv::ReaderBuilder;
+    use ndarray::{arr1, arr2, s, Array2};
+    use ndarray_csv::Array2Reader;
     use rstest::*;
+    use std::fs::File;
 
     #[rstest]
     #[case(&[0., 0., 0., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0, 3, 2.5, 0.25)]
@@ -363,52 +366,41 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_split() {
-        let X = arr2(&[
-            [0., 0.],
-            [0., 2.],
-            [0., 4.],
-            [0., 5.],
-            [1., 1.],
-            [2., 2.],
-            [2., 3.],
-            [2., 4.],
-            [3., 1.],
-            [3., 5.],
-            [4., 0.],
-            [4., 2.],
-            [4., 3.],
-            [4., 4.],
-        ]);
-        let y = arr1(&[1., 1., 2., 2., 1., 1., 2., 2., 0., -1., 0., 0., -1., -1.]);
-        let features: Vec<usize> = (0..2).collect();
-        let in_bag_indices = vec![
-            0, 0, 1, 1, 2, 2, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 11, 11, 12, 12,
-        ];
-        let mut oob_samples = vec![3, 4, 10, 13];
+    #[rstest]
+    #[case(0, 100)]
+    #[case(50, 150)]
+    #[case(0, 150)]
+    fn test_tree_split(#[case] start: usize, #[case] stop: usize) {
+        let file = File::open("testdata/iris.csv").unwrap();
+        let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
+        let data: Array2<f64> = reader.deserialize_array2((150, 5)).unwrap();
 
-        let samples = arrange_samples(&in_bag_indices, &features, &X);
+        let X = data.slice(s![.., 0..4]).to_owned();
+        let y = data.slice(s![.., 4]).to_owned();
+
+        let mut oob_samples = (start..stop).collect::<Vec<_>>();
+        let samples = arrange_samples(&oob_samples, &[0, 1, 2, 3], &X);
 
         let tree = DecisionTree {
             X: &X,
             y: &y,
-            max_depth: 3,
-            features: features.clone(),
+            max_depth: 8,
+            features: vec![0, 1, 2, 3],
         };
+        let result = tree.split(samples, &mut oob_samples, vec![0, 1, 2, 3], 0);
 
-        let result = tree.split(samples, &mut oob_samples, features, 0);
-
-        let mut predictions = vec![-7.; 14];
-        for (idxs, prediction) in result.iter() {
-            for idx in idxs.iter() {
-                predictions[*idx] = *prediction;
+        let mut predictions = Array1::zeros(stop - start);
+        for (idxs, val) in result.iter() {
+            for idx in *idxs {
+                predictions[*idx - start] = *val;
             }
         }
 
-        assert_eq!(
-            predictions,
-            vec![-7., -7., -7., 2.0, 1.0, -7., -7., -7., -7., -7., 0., -7., -7., -1.,]
+        assert!(
+            (predictions - y.slice(s![start..stop]))
+                .mapv(|x| x * x)
+                .sum()
+                < 1.
         );
     }
 }
