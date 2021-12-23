@@ -1,18 +1,16 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use oobforest::RandomForest;
-
 #[cfg(test)]
+use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{Array, Array1, Array2};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
+use oobforest::RandomForest;
 use rand::rngs::StdRng;
+use rand::Rng;
 use rand::SeedableRng;
 
-pub fn data(seed: u64) -> (Array2<f64>, Array1<f64>) {
-    let mut rng = StdRng::seed_from_u64(seed);
-    let n = 10000;
-    let X = Array::random_using((n, 100), Uniform::new(0., 1.), &mut rng);
-    let y = Array::random_using(n, Uniform::new(0., 1.), &mut rng);
+pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>) {
+    let X = Array::random_using((n, d), Uniform::new(0., 1.), rng);
+    let y = Array::random_using(n, Uniform::new(0., 1.), rng);
     let y = y + X.column(0) + X.column(1).map(|x| x - x * x);
 
     (X, y)
@@ -21,7 +19,11 @@ pub fn data(seed: u64) -> (Array2<f64>, Array1<f64>) {
 #[allow(non_snake_case)]
 pub fn criterion_benchmark(c: &mut Criterion) {
     let seed = 0;
-    let (X, y) = data(seed);
+    let n = 10000;
+    let d = 100;
+    let mut rng = StdRng::seed_from_u64(seed);
+
+    let (X, y) = data(n, d, &mut rng);
 
     let X_view = X.view();
     let y_view = y.view();
