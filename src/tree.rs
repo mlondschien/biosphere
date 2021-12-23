@@ -4,9 +4,31 @@ pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
     pub y: &'a ArrayView1<'a, f64>,
     pub max_depth: Option<u16>,
+    pub min_samples_split: usize,
+    pub min_gain_to_split: f64,
 }
 
 impl<'a> DecisionTree<'a> {
+    pub fn new(
+        X: &'a ArrayView2<'a, f64>,
+        y: &'a ArrayView1<'a, f64>,
+        max_depth: Option<u16>,
+        min_samples_split: Option<usize>,
+        min_gain_to_split: Option<f64>,
+    ) -> Self {
+        DecisionTree {
+            X,
+            y,
+            max_depth,
+            min_samples_split: min_samples_split.unwrap_or(2),
+            min_gain_to_split: min_gain_to_split.unwrap_or(1e-6),
+        }
+    }
+
+    pub fn default(X: &'a ArrayView2<'a, f64>, y: &'a ArrayView1<'a, f64>) -> Self {
+        DecisionTree::new(X, y, None, None, None)
+    }
+
     pub fn split(
         &self,
         samples: Vec<Vec<usize>>,
@@ -18,7 +40,9 @@ impl<'a> DecisionTree<'a> {
             return vec![];
         }
 
-        if (self.max_depth.is_some() && depth >= self.max_depth.unwrap()) || samples[0].len() <= 2 {
+        if (self.max_depth.is_some() && depth >= self.max_depth.unwrap())
+            || samples[0].len() <= self.min_samples_split
+        {
             return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
         }
 
@@ -84,6 +108,11 @@ fn find_best_split(
     feature: usize,
     samples: &[usize],
 ) -> (usize, f64, f64) {
+    // y is constant in this segment.
+    if (y[samples[0]] - y[samples[samples.len() - 1]]).abs() < 1e-6 {
+        return (0, 0., 0.);
+    }
+
     let n = samples.len();
 
     let mut cumsum = y.select(Axis(0), samples);
@@ -384,11 +413,7 @@ mod tests {
         let mut oob_samples = (start..stop).collect::<Vec<_>>();
         let samples = arrange_samples(&oob_samples, &[0, 1, 2, 3], &X);
 
-        let tree = DecisionTree {
-            X: &X,
-            y: &y,
-            max_depth: Some(8),
-        };
+        let tree = DecisionTree::default(&X, &y);
         let result = tree.split(samples, &mut oob_samples, &[0, 1, 2, 3], 0);
 
         let mut predictions = Array1::zeros(stop - start);
