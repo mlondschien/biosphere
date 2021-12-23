@@ -10,7 +10,7 @@ name = "oobforest"
 ndarray = "0.15.3"
 rand = "0.8.4"
 
-[profile.release]
+[profile.bench]
 incremental = true
 debug = true
 lto = "fat"
