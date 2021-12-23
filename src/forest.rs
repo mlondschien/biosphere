@@ -124,7 +124,7 @@ mod tests {
         let X = data.slice(s![0..100, 0..4]);
         let y = data.slice(s![0..100, 4]);
 
-        let forest = RandomForest::default(&X, &y);
+        let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None);
 
         let predictions = forest.predict();
         assert!((predictions - y).mapv(|x| x * x).sum() < 0.1);
