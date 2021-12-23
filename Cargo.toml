@@ -17,3 +17,8 @@ ndarray-rand = "0.14.0"
 ndarray = { version = "0.15.3", features = ["approx"] }
 csv = "^1"
 ndarray-csv = "^0.5"
+criterion = "0.3.0"
+
+[[bench]]
+name = "bench_forest"
+harness = false
