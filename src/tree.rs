@@ -1,10 +1,24 @@
+use crate::utils::argsort;
 use ndarray::{ArrayView1, ArrayView2, Axis};
 
 pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
     pub y: &'a ArrayView1<'a, f64>,
+    // Vector of vectors of in-bag indices. The outer vector should be of the same
+    // length as features. All inner vectors should be of the same length, each
+    // containing the same in-bag indices, however in different order. The ordering
+    // should be such that for each `idx` in `0..features.len()`, the array
+    // `X[samples[idx], features[idx]]` is ordered. `samples` will be reshuffled during
+    // `fit`.
+    samples: Vec<Vec<usize>>,
+    // Subset of 0..X.ncols(). Only columns corresponding to an entry `features` are
+    // used to split. Useful for random forests.
+    features: Vec<usize>,
+    // Maximum depth of the tree.
     pub max_depth: Option<u16>,
+    // Minimum number of samples required to split a node.
     pub min_samples_split: usize,
+    // Minimum gain required to split a node. Can be seen as a threshold.
     pub min_gain_to_split: f64,
 }
 
@@ -12,6 +26,8 @@ impl<'a> DecisionTree<'a> {
     pub fn new(
         X: &'a ArrayView2<'a, f64>,
         y: &'a ArrayView1<'a, f64>,
+        features: Vec<usize>,
+        samples: Vec<Vec<usize>>,
         max_depth: Option<u16>,
         min_samples_split: Option<usize>,
         min_gain_to_split: Option<f64>,
@@ -19,6 +35,8 @@ impl<'a> DecisionTree<'a> {
         DecisionTree {
             X,
             y,
+            features,
+            samples,
             max_depth,
             min_samples_split: min_samples_split.unwrap_or(2),
             min_gain_to_split: min_gain_to_split.unwrap_or(1e-6),
@@ -26,191 +44,228 @@ impl<'a> DecisionTree<'a> {
     }
 
     pub fn default(X: &'a ArrayView2<'a, f64>, y: &'a ArrayView1<'a, f64>) -> Self {
-        DecisionTree::new(X, y, None, None, None)
+        let samples = X
+            .axis_iter(Axis(1))
+            .map(|x| argsort(&x))
+            .collect::<Vec<Vec<usize>>>();
+        DecisionTree::new(X, y, (0..X.ncols()).collect(), samples, None, None, None)
     }
 
     pub fn split(
-        &self,
-        samples: Vec<Vec<usize>>,
+        &mut self,
+        // For each `idx` in `feature_indices`, `self.samples[idx][start..stop]` are the
+        // in-bag samples of the current node. Furthermore, these should be such that
+        // `X[self.samples[idx][start..stop], self.features[idx]]` is ordered.
+        start: usize,
+        stop: usize,
         oob_samples: &mut [usize],
-        features: &[usize],
-        depth: u16,
+        // Subset of 0..`self.features.len()`. Only columns `self.features[idx]` for
+        // `idx` in `feature_indices` are used to split. When a column with index
+        // `self.features[idx]` is constant, it is removed from `feature_indices`.
+        // Note that entries in `feature_indices` do not refer directly to columns in
+        // `self.X`, but rather to entries in `self.features`.
+        mut feature_indices: Vec<usize>,
+        current_depth: u16,
     ) -> Vec<(Vec<usize>, f64)> {
         if oob_samples.is_empty() {
             return vec![];
         }
 
-        if (self.max_depth.is_some() && depth >= self.max_depth.unwrap())
-            || samples[0].len() <= self.min_samples_split
+        if (self.max_depth.is_some() && current_depth >= self.max_depth.unwrap())
+            || (stop - start) <= self.min_samples_split
         {
-            return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
+            return vec![(oob_samples.to_vec(), self.mean(start, stop))];
         }
 
         let mut best_gain = 0.;
         let mut best_split = 0;
         let mut best_split_val = 0.;
-        let mut best_feature = 0;
+        let mut best_feature_idx = 0;
 
-        for (feature_idx, feature) in features.iter().enumerate() {
-            let (split, split_val, gain) =
-                find_best_split(self.X, self.y, *feature, &samples[feature_idx]);
+        let mut feature_indices_to_remove: Vec<usize> = vec![];
 
-            if gain > best_gain {
+        for &feature_idx in feature_indices.iter() {
+            let (split, split_val, gain) = self.find_best_split(start, stop, feature_idx);
+
+            if gain < self.min_gain_to_split {
+                // feature self.features[feature_idx] appears to be constant at this
+                // node. We'll remove it from the list of features afterwards.
+                feature_indices_to_remove.push(feature_idx);
+            } else if gain > best_gain {
                 best_gain = gain;
                 best_split = split;
                 best_split_val = split_val;
-                best_feature = *feature;
+                best_feature_idx = feature_idx;
             }
         }
 
         if best_gain <= 0. {
-            return vec![(oob_samples.to_vec(), mean(self.y, &samples[0]))];
+            return vec![(oob_samples.to_vec(), self.mean(start, stop))];
         }
 
-        let (left_samples, right_samples) =
-            split_samples(samples, best_split, self.X, best_feature, best_split_val);
-        let (left_oob_samples, right_oob_samples) =
-            split_oob_samples(oob_samples, self.X, best_feature, best_split_val);
+        if !feature_indices_to_remove.is_empty() {
+            feature_indices.retain(|x| !feature_indices_to_remove.contains(x));
+        }
 
-        let mut left = self.split(left_samples, left_oob_samples, features, depth + 1);
-        let mut right = self.split(right_samples, right_oob_samples, features, depth + 1);
+        self.split_samples(
+            start,
+            best_split,
+            stop,
+            &feature_indices,
+            best_feature_idx,
+            best_split_val,
+        );
+
+        let (left_oob_samples, right_oob_samples) = split_oob_samples(
+            oob_samples,
+            self.X,
+            self.features[best_feature_idx],
+            best_split_val,
+        );
+
+        let mut left = self.split(
+            start,
+            best_split,
+            left_oob_samples,
+            feature_indices.clone(),
+            current_depth + 1,
+        );
+        let mut right = self.split(
+            best_split,
+            stop,
+            right_oob_samples,
+            feature_indices,
+            current_depth + 1,
+        );
         left.append(&mut right);
         left
     }
-}
 
-/// Find best split for y[samples] at X[samples, feature].
-///
-/// Parameters
-/// ----------
-/// X
-///     2D array of shape (n_samples, n_features)
-/// y
-///     1D array of shape (n_samples)
-/// feature
-///     Index of feature for which to find the best split.
-/// samples:
-///     Indices of observations between which to find the best split. X[samples, feature]
-///     should be sorted.
-///
-/// Returns
-/// -------
-/// split
-///     Index of the best split. Left / right samples are samples[:split] and samples[split:].
-/// split_val
-///     Value at which to split. Equal to X[split, feature] / 2. + X[split - 1, feature].
-/// gain
-///     Gain when splitting at split (or split_val).
-// TODO: Disallow split points for which X[split, feature] == X[split - 1, feature].
-fn find_best_split(
-    X: &ArrayView2<f64>,
-    y: &ArrayView1<f64>,
-    feature: usize,
-    samples: &[usize],
-) -> (usize, f64, f64) {
-    // y is constant in this segment.
-    if (y[samples[0]] - y[samples[samples.len() - 1]]).abs() < 1e-6 {
-        return (0, 0., 0.);
-    }
-
-    let n = samples.len();
-
-    let mut cumsum = y.select(Axis(0), samples);
-    cumsum.accumulate_axis_inplace(Axis(0), |&prev, cur| *cur += prev);
-
-    let mut max_gain = 0.;
-    let mut gain: f64;
-    let mut split = 0;
-
-    let mut sum_times_s_by_n = 0.; // s * cumsum[n - 1] / n
-    let sum_by_n = cumsum[n - 1] / n as f64; // cumsum[n - 1] / n
-
-    for s in 1..n {
-        sum_times_s_by_n += sum_by_n;
-        gain = (sum_times_s_by_n - cumsum[s - 1]).powi(2) / (s * (n - s)) as f64;
-        if gain > max_gain {
-            max_gain = gain;
-            split = s;
+    /// Calculate mean value of y[samples[0][start..stop]].
+    fn mean(&self, start: usize, stop: usize) -> f64 {
+        let mut sum = 0.;
+        for idx in self.samples[0][start..stop].iter() {
+            sum += self.y[*idx];
         }
-    }
-    let split_val: f64;
-
-    // TODO: The case split=0 is irrelevant. Get rid of the if/else.
-    if split != 0 {
-        split_val = X[[samples[split], feature]] / 2. + X[[samples[split - 1], feature]] / 2.;
-    } else {
-        split_val = X[[samples[0], feature]];
+        sum / (stop - start) as f64
     }
 
-    (split, split_val, max_gain)
-}
+    /// Find the best split in `self.X[start..stop, self.features[feature_idx]`.
+    fn find_best_split(&self, start: usize, stop: usize, feature_idx: usize) -> (usize, f64, f64) {
+        let feature = self.features[feature_idx];
+        let samples = &self.samples[feature_idx];
+        // X is constant in this segment.
+        if self.X[[samples[stop - 1], feature]] - self.X[[samples[start], feature]] < 1e-6 {
+            return (0, 0., 0.);
+        }
 
-/// Calculate mean value of y[samples].
-fn mean(y: &ArrayView1<f64>, samples: &[usize]) -> f64 {
-    let mut sum = 0.;
-    for idx in samples {
-        sum += y[*idx];
-    }
-    sum / samples.len() as f64
-}
+        let mut cumsum = self.y.select(Axis(0), &samples[start..stop]);
+        cumsum.accumulate_axis_inplace(Axis(0), |&prev, cur| *cur += prev);
 
-/// Split samples into two.
-///
-/// Parameters:
-/// -----------
-/// samples:
-///     For each `feature` in `features`, this should contain indices such that
-///     `self.X[samples[feature_idx], feature]` is sorted.
-/// left_size:
-///     Expected number of samples expected in `left_sample` output. Supplying this
-///     allows efficient memory allocation.
-/// best_feature:
-///     Feature by which obervations are split.
-/// best_split_val:
-///     Value for `best_feature` at which observations are split.
-///
-/// Returns:
-/// --------
-/// left_sample:
-///  
-/// right_sample:
-///
-// TODO: For the feature which was used to split, this is trivial / can be sped up.
-fn split_samples(
-    samples: Vec<Vec<usize>>,
-    left_size: usize,
-    X: &ArrayView2<f64>,
-    best_feature: usize,
-    best_split_val: f64,
-) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
-    let n_features = samples.len();
-    let n_samples = samples[0].len();
-    let right_size = n_samples - left_size;
+        let n = stop - start;
+        let mut max_gain = 0.;
+        let mut gain: f64;
+        let mut split = start;
 
-    let mut left_samples = vec![Vec::<usize>::with_capacity(left_size); n_features];
-    let mut right_samples = vec![Vec::<usize>::with_capacity(right_size); n_features];
+        let mut sum_times_s_by_n = 0.; // s * cumsum[n - 1] / n
+        let sum_by_n = cumsum[n - 1] / n as f64; // cumsum[n - 1] / n
 
-    let mut sample: usize;
-    for feature_idx in 0..n_features {
-        for idx in 0..n_samples {
-            sample = samples[feature_idx][idx];
-            if X[[sample, best_feature]] <= best_split_val {
-                left_samples[feature_idx].push(sample);
-            } else {
-                right_samples[feature_idx].push(sample);
+        for s in 1..n {
+            sum_times_s_by_n += sum_by_n;
+
+            // Hackedy hack.
+            if self.X[[samples[s + start], feature]] - self.X[[samples[s + start - 1], feature]]
+                < 1e-12
+            {
+                continue;
+            }
+
+            gain = (sum_times_s_by_n - cumsum[s - 1]).powi(2) / (s * (n - s)) as f64;
+            if gain > max_gain {
+                max_gain = gain;
+                split = s;
             }
         }
+        let split_val: f64;
+
+        if split == start {
+            (0, 0., 0.)
+        } else {
+            split_val = self.X[[samples[split + start], feature]] / 2.
+                + self.X[[samples[split + start - 1], feature]] / 2.;
+            (split + start, split_val, max_gain)
+        }
     }
 
-    (left_samples, right_samples)
+    /// For each idx in `feature_indices`, reorder `samples[idx][start..stop]` such that
+    /// indices `samples[idx][start..split]` point to observations that belong to the
+    /// left node (i.e. have `x[best_feature] <= best_split_val`) and indices
+    /// `samples[idx][split..stop]` point to observations that belong to the right node,
+    /// while preserving that `self.X[start..split, samples[idx][start..split]` and
+    /// `self.X[split..stop, samples[idx][split..stop]]` are sorted.
+    fn split_samples(
+        &mut self,
+        start: usize,
+        split: usize,
+        stop: usize,
+        feature_indices: &[usize],
+        best_feature_idx: usize,
+        best_split_val: f64,
+    ) {
+        println!(
+            "start: {}, split: {}, stop: {}, best_split_val: {} \n",
+            start, split, stop, best_split_val
+        );
+        let right_size = stop - split;
+
+        let mut right_temp = Vec::with_capacity(right_size);
+
+        for &feature_idx in feature_indices {
+            if feature_idx == best_feature_idx {
+                continue;
+            }
+            // https://stackoverflow.com/a/10334085/10586763
+            let mut current_left = start;
+            for idx in start..stop {
+                println!(
+                    "idx: {}, current_left: {}, right_temp: {:?}",
+                    idx, current_left, right_temp
+                );
+                //println!("self.samples[{}]: {:?}", feature_idx, self.samples[feature_idx]);
+                println!(
+                    "self.X[[{}, {}]]: {}\n",
+                    self.samples[feature_idx][idx],
+                    feature_indices[feature_idx],
+                    self.X[[
+                        self.samples[feature_idx][idx],
+                        feature_indices[best_feature_idx]
+                    ]]
+                );
+                if self.X[[
+                    self.samples[feature_idx][idx],
+                    feature_indices[best_feature_idx],
+                ]] > best_split_val
+                {
+                    right_temp.push(self.samples[feature_idx][idx]);
+                } else {
+                    if current_left != idx {
+                        self.samples[feature_idx][current_left] = self.samples[feature_idx][idx];
+                    }
+                    current_left += 1;
+                }
+            }
+            self.samples[feature_idx][split..stop].copy_from_slice(&right_temp);
+            right_temp.clear();
+        }
+    }
 }
 
-fn split_oob_samples<'a>(
-    oob_samples: &'a mut [usize],
+fn split_oob_samples<'b>(
+    oob_samples: &'b mut [usize],
     X: &'_ ArrayView2<f64>,
     best_feature: usize,
     best_split_val: f64,
-) -> (&'a mut [usize], &'a mut [usize]) {
+) -> (&'b mut [usize], &'b mut [usize]) {
     let mut left_idx = 0;
     let mut right_idx = oob_samples.len() - 1;
 
@@ -245,26 +300,28 @@ mod tests {
     use super::*;
     use crate::testing::{arrange_samples, is_sorted, load_iris};
     use assert_approx_eq::*;
-    use ndarray::{arr1, arr2, s, Array1};
+    use ndarray::{arr1, arr2, s, Array, Array1};
+    use ndarray_rand::rand_distr::Uniform;
+    use ndarray_rand::RandomExt;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
     use rstest::*;
 
     #[rstest]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0, 3, 2.5, 0.25)]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 2, 4, 5], 0, 2, 3., 0.25)]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 0, 2, 3, 4, 5], 0, 3, 2.5, 0.25)]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 0, 1, 2, 2, 3, 4, 4, 4, 5], 0, 5, 2.5, 0.25)]
-    //
-    #[case(&[0., 0., 0., 0., 0., 0.], &[0, 1, 2, 3, 4, 5], 0, 0, 0., 0.)]
-    //
-    #[case(&[7., 1., 1., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0, 1, 0.5, 5.)]
-    #[case(&[1., 1., 0., 0., 2., 2.], &[0, 1, 2, 3, 4, 5], 0, 4, 3.5, 0.5)]
-    // //
-    #[case(&[-5., -5., -5., -5., -5., 1.], &[0, 1, 2, 3, 4, 5], 1, 5, 0.5, 5.)]
-    #[case(&[-5., -5., -5., -5., -5., 1.], &[4, 3, 3, 1, 4, 5], 1, 5, 0.5, 5.)]
-    // TODO #[case(&[0., 1., 1., 1., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 1, 5, 0.5, 5.)]
+    #[case(&[0., 0., 0., 1., 1., 1.], 0, 6, 0, 3, 2.5, 0.25)]
+    #[case(&[0., 0., 0., 1., 1., 1.], 1, 5, 0, 3, 2.5, 0.25)]
+    #[case(&[0., 0., 0., 0., 0., 0.], 0, 6, 0, 0, 0., 0.)]
+    #[case(&[7., 1., 1., 1., 1., 1.], 0, 6, 0, 1, 0.5, 5.)]
+    #[case(&[7., 1., 1., 1., 1., 1.], 0, 2, 0, 1, 0.5, 9.)]
+    #[case(&[1., 1., 0., 0., 2., 2.], 0, 6, 0, 4, 3.5, 0.5)]
+    #[case(&[-5., -5., -5., -5., -5., 1.], 0, 6, 1, 5, 0.5, 5.)]
+    #[case(&[-5., -5., -5., -5., -5., 1.], 0, 6, 0, 5, 4.5, 5.)]
+    #[case(&[-5., 1., 1., 1., 1., 1., 1.], 0, 6, 0, 1, 0.5, 5.)]
+    #[case(&[-5., 1., 1., 1., 1., 1., 1.], 0, 6, 1, 5, 0.5, 0.2)]
     fn test_find_best_split(
         #[case] y: &[f64],
-        #[case] samples: &[usize],
+        #[case] start: usize,
+        #[case] stop: usize,
         #[case] feature: usize,
         #[case] expected_split: usize,
         #[case] expected_split_val: f64,
@@ -275,14 +332,9 @@ mod tests {
         let y = arr1(y);
         let y_view = y.view();
 
-        assert!(is_sorted(
-            &X.slice(s![.., feature])
-                .select(Axis(0), samples)
-                .as_slice()
-                .unwrap()
-        ));
+        let tree = DecisionTree::default(&X_view, &y_view);
 
-        let (split, split_val, gain) = find_best_split(&X_view, &y_view, feature, samples);
+        let (split, split_val, gain) = tree.find_best_split(start, stop, feature);
 
         assert_eq!(
             (expected_split, expected_split_val, expected_gain),
@@ -291,115 +343,124 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 1, 2, 3, 4, 5], 0.5)]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0], 0.)]
-    #[case(&[0., 0., 0., 1., 1., 1.], &[0, 3], 0.5)]
-    #[case(&[-1., 0., 1., 2., 3., 4.], &[0, 0, 1, 5], 0.5)]
-    fn test_mean(#[case] y: &[f64], #[case] samples: &[usize], #[case] expected_mean: f64) {
-        let y = arr1(y);
-        let y_view = y.view();
-        assert_approx_eq!(expected_mean, mean(&y_view, samples));
-    }
-
-    #[rstest]
-    #[case(&[0, 1, 2, 3, 4, 5], 0, 2.5)]
-    #[case(&[0, 1, 1, 2, 5], 0, 2.5)]
-    #[case(&[0, 0, 0, 1, 1, 2, 4, 4, 4, 4, 5], 0, 2.5)]
-    //
-    #[case(&[0, 1, 2, 3, 4, 5], 0, 0.5)]
-    #[case(&[0, 1, 2, 3, 4, 5], 0, 0.)]
-    #[case(&[0, 1, 2, 3, 4, 5], 0, -1.)]
-    #[case(&[0, 1, 2, 3, 4, 5], 0, 5.)]
-    //
-    #[case(&[0, 1, 2, 3, 4, 5], 1, 0.25)]
-    #[case(&[0, 0, 0, 0, 2, 3, 4, 5], 1, 0.25)]
-    #[case(&[0, 0, 0, 0, 2, 3, 4, 5], 1, 0.75)]
+    #[case(0, 50, 100, 1)]
+    #[case(25, 50, 75, 1)]
+    #[case(25, 50, 100, 1)]
+    #[case(0, 6, 12, 1)]
     fn test_split_samples(
-        #[case] sample_counts: &[usize],
-        #[case] best_feature: usize,
-        #[case] best_split_val: f64,
+        #[case] start: usize,
+        #[case] split: usize,
+        #[case] stop: usize,
+        #[case] best_feature_idx: usize,
     ) {
-        let X = arr2(&[
-            [0., 0.],
-            [1., -1.],
-            [2., 0.],
-            [3., -4.],
-            [4., 4.],
-            [5., 0.5],
-        ]);
+        let mut rng = StdRng::seed_from_u64(0);
+        let X = Array::random_using((100, 10), Uniform::new(0., 1.), &mut rng);
         let X_view = X.view();
+        let y = Array::random_using(100, Uniform::new(0., 1.), &mut rng);
+        let y_view = y.view();
+
         let features = (0..X.shape()[1]).collect::<Vec<_>>();
+        let mut tree = DecisionTree::default(&X_view, &y_view);
 
-        let samples = arrange_samples(sample_counts, &features, &X_view);
+        if start > 0 {
+            let x_sorted = X
+                .column(best_feature_idx)
+                .select(Axis(0), &tree.samples[best_feature_idx]);
+            let best_split_val = x_sorted[start] / 2. + x_sorted[start - 1] / 2.;
+            tree.split_samples(0, start, 100, &features, best_feature_idx, best_split_val);
+        }
 
-        // left_size is only used for efficient memory allocation.
-        let (left_samples, right_samples) =
-            split_samples(samples, 0, &X_view, best_feature, best_split_val);
+        if stop < 100 {
+            let x_sorted = X
+                .column(best_feature_idx)
+                .select(Axis(0), &tree.samples[best_feature_idx]);
+            let best_split_val = x_sorted[stop] / 2. + x_sorted[stop - 1] / 2.;
+            tree.split_samples(
+                start,
+                stop,
+                100,
+                &features,
+                best_feature_idx,
+                best_split_val,
+            );
+        }
+
+        let x_sorted = X
+            .column(best_feature_idx)
+            .select(Axis(0), &tree.samples[best_feature_idx]);
+        let best_split_val = x_sorted[split] / 2. + x_sorted[split - 1] / 2.;
+
+        let samples_copy = tree.samples.clone();
+
+        tree.split_samples(
+            start,
+            split,
+            stop,
+            &features,
+            best_feature_idx,
+            best_split_val,
+        );
 
         for feature_idx in features {
             assert!(is_sorted(
-                X.slice(s![.., feature_idx])
-                    .select(Axis(0), &left_samples[feature_idx])
-                    .as_slice()
-                    .unwrap()
+                &X.column(feature_idx)
+                    .select(Axis(0), &tree.samples[feature_idx][start..split])
             ));
             assert!(is_sorted(
-                X.slice(s![.., feature_idx])
-                    .select(Axis(0), &right_samples[feature_idx])
-                    .as_slice()
-                    .unwrap()
+                &X.column(feature_idx)
+                    .select(Axis(0), &tree.samples[feature_idx][split..stop])
             ));
 
-            for idx in left_samples[feature_idx].iter() {
-                assert!(X[[*idx, best_feature]] <= best_split_val);
+            for idx in tree.samples[feature_idx][start..split].iter() {
+                assert!(X[[*idx, best_feature_idx]] <= best_split_val);
             }
 
-            for idx in right_samples[feature_idx].iter() {
-                assert!(X[[*idx, best_feature]] > best_split_val);
+            for idx in tree.samples[feature_idx][split..stop].iter() {
+                assert!(X[[*idx, best_feature_idx]] > best_split_val);
             }
 
-            // Assert set(left_sample[feature_idx]) + set(right_sample[feature_idx]) == set(sample_counts)
-            let mut full_sample = left_samples[feature_idx].clone();
-            full_sample.append(&mut right_samples[feature_idx].clone());
-            full_sample.sort();
-            assert_eq!(full_sample, sample_counts);
+            let mut before = samples_copy[feature_idx][start..stop].to_vec();
+            before.sort();
+            let mut after = tree.samples[feature_idx][start..stop].to_vec();
+            after.sort();
+            assert_eq!(before, after);
         }
     }
 
-    #[rstest]
-    #[case(&mut [0, 1], &mut [0], &mut [1], 0, 0.5)]
-    #[case(&mut [0, 1], &mut [0, 1], &mut [], 0, 1.5)]
-    #[case(&mut [0, 1], &mut [], &mut [0, 1], 0, -1.)]
-    #[case(&mut [0, 1, 1, 2, 3], &mut [], &mut [0, 1, 1, 2, 3], 0, -1.)]
-    #[case(&mut [0, 1, 1, 2, 3], &mut [0, 1, 1, 2, 3], &mut [], 0, 10.)]
-    #[case(&mut [0, 3, 3, 2, 1], &mut [0, 1], &mut [3, 2, 3], 0, 1.5)]
-    #[case(&mut [0, 1, 2, 3, 4, 5], &mut [0, 1, 2, 3], &mut [4, 5], 1, 0.25)]
-    #[case(&mut [0, 2, 3, 0, 1, 4, 5], &mut [0, 2, 3, 0, 1], &mut [4, 5], 1, 0.25)]
-    fn test_split_oob_samples(
-        #[case] samples: &mut [usize],
-        #[case] expected_left: &mut [usize],
-        #[case] expected_right: &mut [usize],
-        #[case] best_feature: usize,
-        #[case] best_val: f64,
-    ) {
-        let X = arr2(&[
-            [0., 0.],
-            [1., -1.],
-            [2., 0.],
-            [3., -4.],
-            [4., 4.],
-            [5., 0.5],
-        ]);
-        let X_view = X.view();
+    // #[rstest]
+    // #[case(&mut [0, 1], &mut [0], &mut [1], 0, 0.5)]
+    // #[case(&mut [0, 1], &mut [0, 1], &mut [], 0, 1.5)]
+    // #[case(&mut [0, 1], &mut [], &mut [0, 1], 0, -1.)]
+    // #[case(&mut [0, 1, 1, 2, 3], &mut [], &mut [0, 1, 1, 2, 3], 0, -1.)]
+    // #[case(&mut [0, 1, 1, 2, 3], &mut [0, 1, 1, 2, 3], &mut [], 0, 10.)]
+    // #[case(&mut [0, 3, 3, 2, 1], &mut [0, 1], &mut [3, 2, 3], 0, 1.5)]
+    // #[case(&mut [0, 1, 2, 3, 4, 5], &mut [0, 1, 2, 3], &mut [4, 5], 1, 0.25)]
+    // #[case(&mut [0, 2, 3, 0, 1, 4, 5], &mut [0, 2, 3, 0, 1], &mut [4, 5], 1, 0.25)]
+    // fn test_split_oob_samples(
+    //     #[case] samples: &mut [usize],
+    //     #[case] expected_left: &mut [usize],
+    //     #[case] expected_right: &mut [usize],
+    //     #[case] best_feature: usize,
+    //     #[case] best_val: f64,
+    // ) {
+    //     let X = arr2(&[
+    //         [0., 0.],
+    //         [1., -1.],
+    //         [2., 0.],
+    //         [3., -4.],
+    //         [4., 4.],
+    //         [5., 0.5],
+    //     ]);
+    //     let X_view = X.view();
 
-        let (left_samples, right_samples) =
-            split_oob_samples(samples, &X_view, best_feature, best_val);
+    //     let (left_samples, right_samples) =
+    //         split_oob_samples(samples, &X_view, best_feature, best_val);
 
-        assert_eq!(
-            (left_samples, right_samples),
-            (expected_left, expected_right)
-        );
-    }
+    //     assert_eq!(
+    //         (left_samples, right_samples),
+    //         (expected_left, expected_right)
+    //     );
+    // }
 
     #[rstest]
     #[case(0, 100)]
@@ -411,10 +472,9 @@ mod tests {
         let y = data.slice(s![.., 4]);
 
         let mut oob_samples = (start..stop).collect::<Vec<_>>();
-        let samples = arrange_samples(&oob_samples, &[0, 1, 2, 3], &X);
 
-        let tree = DecisionTree::default(&X, &y);
-        let result = tree.split(samples, &mut oob_samples, &[0, 1, 2, 3], 0);
+        let mut tree = DecisionTree::default(&X, &y);
+        let result = tree.split(0, X.nrows(), &mut oob_samples, vec![0, 1, 2, 3], 0);
 
         let mut predictions = Array1::zeros(stop - start);
         for (idxs, val) in result.iter() {

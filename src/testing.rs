@@ -1,16 +1,13 @@
 use csv::ReaderBuilder;
-use ndarray::{s, Array2, ArrayView2, Axis};
+use ndarray::{s, Array2, ArrayBase, ArrayView2, Axis, Data, Ix1};
 use ndarray_csv::Array2Reader;
 use std::fs::File;
 
 /// Check if input is sorted. Used for testing.
 ///
 /// From https://stackoverflow.com/questions/51272571/how-do-i-check-if-a-slice-is-sorted.
-pub fn is_sorted<T>(data: &[T]) -> bool
-where
-    T: std::cmp::PartialOrd,
-{
-    data.windows(2).all(|w| w[0] <= w[1])
+pub fn is_sorted(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> bool {
+    data.windows(2).into_iter().all(|x| x[0] <= x[1])
 }
 
 pub fn arrange_samples(
@@ -27,10 +24,7 @@ pub fn arrange_samples(
                 .unwrap()
         });
         assert!(is_sorted(
-            X.slice(s![.., feature_idx])
-                .select(Axis(0), &sample)
-                .as_slice()
-                .unwrap()
+            &X.slice(s![.., feature_idx]).select(Axis(0), &sample)
         ));
         samples_out.push(sample);
     }

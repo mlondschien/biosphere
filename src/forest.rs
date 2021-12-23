@@ -54,10 +54,9 @@ impl<'a> RandomForest<'a> {
         let mut predictions = Array1::zeros(self.y.len());
         let mut n_predictions = Array1::<u32>::zeros(self.y.len());
 
-        let mut indices: Vec<Vec<usize>> = Vec::with_capacity(self.X.ncols());
-        for i in 0..self.X.ncols() {
-            indices.push(argsort(&self.X.column(i).to_vec()));
-        }
+        let indices: Vec<Vec<usize>> = (0..self.X.ncols())
+            .map(|col| argsort(&self.X.column(col)))
+            .collect();
 
         for _ in 0..self.n_trees {
             let weights = sample_weights(n, &mut rng);
@@ -65,9 +64,9 @@ impl<'a> RandomForest<'a> {
             let result = predict_with_tree(
                 self.X,
                 self.y,
-                &weights,
+                weights,
                 &indices,
-                &features,
+                features,
                 self.max_depth,
                 self.min_samples_split,
                 self.min_gain_to_split,
@@ -97,19 +96,33 @@ impl<'a> RandomForest<'a> {
 fn predict_with_tree<'b>(
     X: &'b ArrayView2<'b, f64>,
     y: &'b ArrayView1<'b, f64>,
-    weights: &[usize],
+    weights: Vec<usize>,
     indices: &[Vec<usize>],
-    features: &[usize],
+    features: Vec<usize>,
     max_depth: Option<u16>,
     min_samples_split: Option<usize>,
     min_gain_to_split: Option<f64>,
 ) -> Vec<(Vec<usize>, f64)> {
-    let samples = sample_indices_from_weights(weights, indices, features);
-    let mut oob_samples = oob_samples_from_weights(weights);
+    let samples = sample_indices_from_weights(&weights, indices, &features);
+    let mut oob_samples = oob_samples_from_weights(&weights);
 
-    let tree = DecisionTree::new(X, y, max_depth, min_samples_split, min_gain_to_split);
+    let mut tree = DecisionTree::new(
+        X,
+        y,
+        features.clone(),
+        samples,
+        max_depth,
+        min_samples_split,
+        min_gain_to_split,
+    );
 
-    tree.split(samples, &mut oob_samples, features, 0)
+    tree.split(
+        0,
+        X.nrows(),
+        &mut oob_samples,
+        (0..features.len()).collect(),
+        0,
+    )
 }
 
 #[cfg(test)]
