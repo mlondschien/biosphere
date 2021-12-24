@@ -1,10 +1,12 @@
+use ndarray::{ArrayBase, Data, Ix1};
 use rand::Rng;
 
-/// Compute `indices` such that `data[indices]` is sorted.
-pub fn argsort<T>(data: &[T]) -> Vec<usize>
-where
-    T: std::cmp::PartialOrd,
-{
+/// Compute `indices` such that `data.select(indices)` is sorted.
+///
+/// Parameters
+/// ----------
+/// data: Array1<f64> or ArrayView<f64>
+pub fn argsort(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Vec<usize> {
     let mut indices = (0..data.len()).collect::<Vec<usize>>();
     indices.sort_unstable_by(|&a, &b| data[a].partial_cmp(&data[b]).unwrap());
     indices
@@ -54,7 +56,7 @@ pub fn oob_samples_from_weights(weights: &[usize]) -> Vec<usize> {
 mod tests {
     use super::*;
     use crate::testing::is_sorted;
-    use ndarray::{s, Array, Axis};
+    use ndarray::{Array, Axis};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
     use rand::rngs::StdRng;
@@ -67,8 +69,8 @@ mod tests {
         let n = 100;
         let x = Array::random_using(n, Uniform::new(0., 1.), &mut rng);
 
-        let indices = argsort(&x.as_slice().unwrap());
-        assert!(is_sorted(x.select(Axis(0), &indices).as_slice().unwrap()));
+        let indices = argsort(&x);
+        assert!(is_sorted(&x.select(Axis(0), &indices)));
     }
 
     #[test]
@@ -90,12 +92,8 @@ mod tests {
         let d = 8;
 
         let X = Array::random_using((n, d), Uniform::new(0., 1.), &mut rng);
-        let mut indices = Vec::<Vec<usize>>::with_capacity(d);
 
-        for idx in 0..d {
-            indices.push(argsort(&X.slice(s![.., idx]).to_vec()));
-        }
-
+        let indices: Vec<Vec<usize>> = (0..d).map(|idx| argsort(&X.column(idx))).collect();
         let weights = sample_weights(n, &mut rng);
 
         let features = &[0, 2, 3, 4, 6];
@@ -103,10 +101,7 @@ mod tests {
 
         for (feature_idx, &feature) in features.iter().enumerate() {
             assert!(is_sorted(
-                X.slice(s![.., feature])
-                    .select(Axis(0), &samples[feature_idx])
-                    .as_slice()
-                    .unwrap()
+                &X.column(feature).select(Axis(0), &samples[feature_idx])
             ));
         }
     }

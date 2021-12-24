@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[allow(non_snake_case)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{Array, Array1, Array2};
 use ndarray_rand::rand_distr::Uniform;
@@ -9,6 +8,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 
+#[allow(non_snake_case)]
 pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>) {
     let X = Array::random_using((n, d), Uniform::new(0., 1.), rng);
     let y = Array::random_using(n, Uniform::new(0., 1.), rng);
@@ -17,6 +17,7 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
     (X, y)
 }
 
+#[allow(non_snake_case)]
 pub fn criterion_benchmark(c: &mut Criterion) {
     let seed = 0;
     let n = 10000;
