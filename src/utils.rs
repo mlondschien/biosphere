@@ -56,7 +56,7 @@ pub fn oob_samples_from_weights(weights: &[usize]) -> Vec<usize> {
 mod tests {
     use super::*;
     use crate::testing::is_sorted;
-    use ndarray::{s, Array, Axis};
+    use ndarray::{Array, Axis};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
     use rand::rngs::StdRng;

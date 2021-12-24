@@ -99,7 +99,7 @@ impl<'a> DecisionTree<'a> {
             }
         }
 
-        if best_gain <= 0. {
+        if best_gain <= self.min_gain_to_split {
             return vec![(oob_samples.to_vec(), self.mean(start, stop))];
         }
 
@@ -187,6 +187,10 @@ impl<'a> DecisionTree<'a> {
             }
         }
         let split_val: f64;
+        println!(
+            "Found best split, start: {}, stop: {}, feature {}, best_split: {}, max_gain: {}",
+            start, stop, feature, split, max_gain
+        );
 
         if split == start {
             (0, 0., 0.)
@@ -212,45 +216,30 @@ impl<'a> DecisionTree<'a> {
         best_feature_idx: usize,
         best_split_val: f64,
     ) {
-        println!(
-            "start: {}, split: {}, stop: {}, best_split_val: {} \n",
-            start, split, stop, best_split_val
-        );
         let right_size = stop - split;
 
         let mut right_temp = Vec::with_capacity(right_size);
+        let mut current_left: usize;
 
         for &feature_idx in feature_indices {
             if feature_idx == best_feature_idx {
                 continue;
             }
             // https://stackoverflow.com/a/10334085/10586763
-            let mut current_left = start;
+            // Even digits in the example correspond to indices belonging to the right
+            // node, odd digits to the left.
+
+            // [start, .., current_left) contains (sorted) indices belonging to the left node.
+            current_left = start;
             for idx in start..stop {
-                println!(
-                    "idx: {}, current_left: {}, right_temp: {:?}",
-                    idx, current_left, right_temp
-                );
-                //println!("self.samples[{}]: {:?}", feature_idx, self.samples[feature_idx]);
-                println!(
-                    "self.X[[{}, {}]]: {}\n",
-                    self.samples[feature_idx][idx],
-                    feature_indices[feature_idx],
-                    self.X[[
-                        self.samples[feature_idx][idx],
-                        feature_indices[best_feature_idx]
-                    ]]
-                );
                 if self.X[[
                     self.samples[feature_idx][idx],
-                    feature_indices[best_feature_idx],
+                    self.features[best_feature_idx],
                 ]] > best_split_val
                 {
                     right_temp.push(self.samples[feature_idx][idx]);
                 } else {
-                    if current_left != idx {
-                        self.samples[feature_idx][current_left] = self.samples[feature_idx][idx];
-                    }
+                    self.samples[feature_idx][current_left] = self.samples[feature_idx][idx];
                     current_left += 1;
                 }
             }
@@ -298,8 +287,7 @@ fn split_oob_samples<'b>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{arrange_samples, is_sorted, load_iris};
-    use assert_approx_eq::*;
+    use crate::testing::{is_sorted, load_iris};
     use ndarray::{arr1, arr2, s, Array, Array1};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
@@ -362,6 +350,8 @@ mod tests {
         let features = (0..X.shape()[1]).collect::<Vec<_>>();
         let mut tree = DecisionTree::default(&X_view, &y_view);
 
+        // Separate samples s.t. `tree.samples[feature_idx][start..stop]` contains the
+        // same indices for each `feature_idx`.
         if start > 0 {
             let x_sorted = X
                 .column(best_feature_idx)
@@ -427,40 +417,40 @@ mod tests {
         }
     }
 
-    // #[rstest]
-    // #[case(&mut [0, 1], &mut [0], &mut [1], 0, 0.5)]
-    // #[case(&mut [0, 1], &mut [0, 1], &mut [], 0, 1.5)]
-    // #[case(&mut [0, 1], &mut [], &mut [0, 1], 0, -1.)]
-    // #[case(&mut [0, 1, 1, 2, 3], &mut [], &mut [0, 1, 1, 2, 3], 0, -1.)]
-    // #[case(&mut [0, 1, 1, 2, 3], &mut [0, 1, 1, 2, 3], &mut [], 0, 10.)]
-    // #[case(&mut [0, 3, 3, 2, 1], &mut [0, 1], &mut [3, 2, 3], 0, 1.5)]
-    // #[case(&mut [0, 1, 2, 3, 4, 5], &mut [0, 1, 2, 3], &mut [4, 5], 1, 0.25)]
-    // #[case(&mut [0, 2, 3, 0, 1, 4, 5], &mut [0, 2, 3, 0, 1], &mut [4, 5], 1, 0.25)]
-    // fn test_split_oob_samples(
-    //     #[case] samples: &mut [usize],
-    //     #[case] expected_left: &mut [usize],
-    //     #[case] expected_right: &mut [usize],
-    //     #[case] best_feature: usize,
-    //     #[case] best_val: f64,
-    // ) {
-    //     let X = arr2(&[
-    //         [0., 0.],
-    //         [1., -1.],
-    //         [2., 0.],
-    //         [3., -4.],
-    //         [4., 4.],
-    //         [5., 0.5],
-    //     ]);
-    //     let X_view = X.view();
+    #[rstest]
+    #[case(&mut [0, 1], &mut [0], &mut [1], 0, 0.5)]
+    #[case(&mut [0, 1], &mut [0, 1], &mut [], 0, 1.5)]
+    #[case(&mut [0, 1], &mut [], &mut [0, 1], 0, -1.)]
+    #[case(&mut [0, 1, 1, 2, 3], &mut [], &mut [0, 1, 1, 2, 3], 0, -1.)]
+    #[case(&mut [0, 1, 1, 2, 3], &mut [0, 1, 1, 2, 3], &mut [], 0, 10.)]
+    #[case(&mut [0, 3, 3, 2, 1], &mut [0, 1], &mut [3, 2, 3], 0, 1.5)]
+    #[case(&mut [0, 1, 2, 3, 4, 5], &mut [0, 1, 2, 3], &mut [4, 5], 1, 0.25)]
+    #[case(&mut [0, 2, 3, 0, 1, 4, 5], &mut [0, 2, 3, 0, 1], &mut [4, 5], 1, 0.25)]
+    fn test_split_oob_samples(
+        #[case] samples: &mut [usize],
+        #[case] expected_left: &mut [usize],
+        #[case] expected_right: &mut [usize],
+        #[case] best_feature: usize,
+        #[case] best_val: f64,
+    ) {
+        let X = arr2(&[
+            [0., 0.],
+            [1., -1.],
+            [2., 0.],
+            [3., -4.],
+            [4., 4.],
+            [5., 0.5],
+        ]);
+        let X_view = X.view();
 
-    //     let (left_samples, right_samples) =
-    //         split_oob_samples(samples, &X_view, best_feature, best_val);
+        let (left_samples, right_samples) =
+            split_oob_samples(samples, &X_view, best_feature, best_val);
 
-    //     assert_eq!(
-    //         (left_samples, right_samples),
-    //         (expected_left, expected_right)
-    //     );
-    // }
+        assert_eq!(
+            (left_samples, right_samples),
+            (expected_left, expected_right)
+        );
+    }
 
     #[rstest]
     #[case(0, 100)]
