@@ -187,10 +187,6 @@ impl<'a> DecisionTree<'a> {
             }
         }
         let split_val: f64;
-        // println!(
-        //     "Found best split, start: {}, stop: {}, feature {}, best_split: {}, max_gain: {}",
-        //     start, stop, feature, split, max_gain
-        // );
 
         if split == start {
             (0, 0., 0.)
