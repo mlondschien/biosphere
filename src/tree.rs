@@ -187,10 +187,10 @@ impl<'a> DecisionTree<'a> {
             }
         }
         let split_val: f64;
-        println!(
-            "Found best split, start: {}, stop: {}, feature {}, best_split: {}, max_gain: {}",
-            start, stop, feature, split, max_gain
-        );
+        // println!(
+        //     "Found best split, start: {}, stop: {}, feature {}, best_split: {}, max_gain: {}",
+        //     start, stop, feature, split, max_gain
+        // );
 
         if split == start {
             (0, 0., 0.)
@@ -216,34 +216,28 @@ impl<'a> DecisionTree<'a> {
         best_feature_idx: usize,
         best_split_val: f64,
     ) {
-        let right_size = stop - split;
+        let mut left_temp = Vec::<usize>::with_capacity(split - start);
+        let mut right_temp = Vec::<usize>::with_capacity(stop - split);
 
-        let mut right_temp = Vec::with_capacity(right_size);
-        let mut current_left: usize;
+        let mut samples: &[usize];
+        let best_feature: usize = self.features[best_feature_idx];
 
         for &feature_idx in feature_indices {
             if feature_idx == best_feature_idx {
                 continue;
             }
-            // https://stackoverflow.com/a/10334085/10586763
-            // Even digits in the example correspond to indices belonging to the right
-            // node, odd digits to the left.
+            samples = &self.samples[feature_idx];
 
-            // [start, .., current_left) contains (sorted) indices belonging to the left node.
-            current_left = start;
-            for idx in start..stop {
-                if self.X[[
-                    self.samples[feature_idx][idx],
-                    self.features[best_feature_idx],
-                ]] > best_split_val
-                {
-                    right_temp.push(self.samples[feature_idx][idx]);
+            for &sample in samples[start..stop].iter() {
+                if self.X[[sample, best_feature]] > best_split_val {
+                    right_temp.push(sample);
                 } else {
-                    self.samples[feature_idx][current_left] = self.samples[feature_idx][idx];
-                    current_left += 1;
+                    left_temp.push(sample)
                 }
             }
             self.samples[feature_idx][split..stop].copy_from_slice(&right_temp);
+            self.samples[feature_idx][start..split].copy_from_slice(&left_temp);
+            left_temp.clear();
             right_temp.clear();
         }
     }
