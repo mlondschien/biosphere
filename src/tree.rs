@@ -216,28 +216,33 @@ impl<'a> DecisionTree<'a> {
         best_feature_idx: usize,
         best_split_val: f64,
     ) {
-        let mut left_temp = Vec::<usize>::with_capacity(split - start);
         let mut right_temp = Vec::<usize>::with_capacity(stop - split);
 
-        let mut samples: &[usize];
+        let mut samples: &mut [usize];
         let best_feature: usize = self.features[best_feature_idx];
+        let mut current_left: usize;
 
         for &feature_idx in feature_indices {
             if feature_idx == best_feature_idx {
                 continue;
             }
-            samples = &self.samples[feature_idx];
+            samples = &mut self.samples[feature_idx];
+            // https://stackoverflow.com/a/10334085/10586763
+            // Even digits in the example correspond to indices belonging to the right
+            // node, odd digits to the left.
 
-            for &sample in samples[start..stop].iter() {
-                if self.X[[sample, best_feature]] > best_split_val {
-                    right_temp.push(sample);
+            // samples[start, .., current_left) contains (sorted by X) indices belonging
+            // to the left node.
+            current_left = start;
+            for idx in start..stop {
+                if self.X[[samples[idx], best_feature]] > best_split_val {
+                    right_temp.push(samples[idx]);
                 } else {
-                    left_temp.push(sample)
+                    samples[current_left] = samples[idx];
+                    current_left += 1;
                 }
             }
             self.samples[feature_idx][split..stop].copy_from_slice(&right_temp);
-            self.samples[feature_idx][start..split].copy_from_slice(&left_temp);
-            left_temp.clear();
             right_temp.clear();
         }
     }
