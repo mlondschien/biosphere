@@ -1,5 +1,7 @@
 use crate::utils::argsort;
 use ndarray::{ArrayView1, ArrayView2, Axis};
+use rand::seq::SliceRandom;
+use rand::Rng;
 
 pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
@@ -64,6 +66,7 @@ impl<'a> DecisionTree<'a> {
         // node.
         mut constant_features: Vec<bool>,
         current_depth: u16,
+        mut rng: &mut impl Rng,
     ) -> Vec<(Vec<usize>, f64)> {
         if oob_samples.is_empty() {
             return vec![];
@@ -80,13 +83,22 @@ impl<'a> DecisionTree<'a> {
         let mut best_split_val = 0.;
         let mut best_feature = 0;
 
-        // let feature_order = (0..self.features.len()).collect::<Vec<usize>>();
+        let mut feature_order = (0..self.X.ncols()).collect::<Vec<usize>>();
+        feature_order.shuffle(rng);
 
-        for (feature, is_constant) in constant_features.iter_mut().enumerate() {
+        for (feature_idx, &feature) in feature_order.iter().enumerate() {
+            if (feature_idx as u16 >= self.mtry) && best_gain > 0. {
+                break;
+            }
+
+            if constant_features[feature] {
+                continue;
+            }
+
             let (split, split_val, gain) = self.find_best_split(start, stop, feature);
 
             if gain < self.min_gain_to_split {
-                *is_constant = true;
+                constant_features[feature_idx] = true;
             } else if gain > best_gain {
                 best_gain = gain;
                 best_split = split;
@@ -117,6 +129,7 @@ impl<'a> DecisionTree<'a> {
             left_oob_samples,
             constant_features.clone(),
             current_depth + 1,
+            &mut rng,
         );
         let mut right = self.split(
             best_split,
@@ -124,6 +137,7 @@ impl<'a> DecisionTree<'a> {
             right_oob_samples,
             constant_features,
             current_depth + 1,
+            &mut rng,
         );
         left.append(&mut right);
         left
@@ -433,7 +447,8 @@ mod tests {
         let mut oob_samples = (start..stop).collect::<Vec<_>>();
 
         let mut tree = DecisionTree::default(&X, &y);
-        let result = tree.split(0, X.nrows(), &mut oob_samples, vec![false; 4], 0);
+        let mut rng = StdRng::seed_from_u64(0);
+        let result = tree.split(0, X.nrows(), &mut oob_samples, vec![false; 4], 0, &mut rng);
 
         let mut predictions = Array1::zeros(stop - start);
         for (idxs, val) in result.iter() {

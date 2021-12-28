@@ -4,6 +4,7 @@ use crate::utils::{
 };
 use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
+use rand::Rng;
 use rand::SeedableRng;
 
 pub struct RandomForest<'a> {
@@ -57,6 +58,7 @@ impl<'a> RandomForest<'a> {
             .collect();
 
         for _ in 0..self.n_trees {
+            let seed: u64 = rng.gen();
             let weights = sample_weights(n, &mut rng);
             let result = predict_with_tree(
                 self.X,
@@ -67,6 +69,7 @@ impl<'a> RandomForest<'a> {
                 self.max_depth,
                 self.min_samples_split,
                 self.min_gain_to_split,
+                seed,
             );
             for (idxs, prediction) in result {
                 for idx in idxs {
@@ -99,10 +102,11 @@ fn predict_with_tree<'b>(
     max_depth: Option<u16>,
     min_samples_split: Option<usize>,
     min_gain_to_split: Option<f64>,
+    seed: u64,
 ) -> Vec<(Vec<usize>, f64)> {
     let samples = sample_indices_from_weights(&weights, indices);
     let mut oob_samples = oob_samples_from_weights(&weights);
-
+    let mut rng = StdRng::seed_from_u64(seed);
     let mut tree = DecisionTree::new(
         X,
         y,
@@ -113,7 +117,14 @@ fn predict_with_tree<'b>(
         min_gain_to_split,
     );
 
-    tree.split(0, X.nrows(), &mut oob_samples, vec![true; X.ncols()], 0)
+    tree.split(
+        0,
+        X.nrows(),
+        &mut oob_samples,
+        vec![true; X.ncols()],
+        0,
+        &mut rng,
+    )
 }
 
 #[cfg(test)]
