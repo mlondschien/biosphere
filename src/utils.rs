@@ -22,18 +22,14 @@ pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
     counts
 }
 
-pub fn sample_indices_from_weights(
-    weights: &[usize],
-    indices: &[Vec<usize>],
-    features: &[usize],
-) -> Vec<Vec<usize>> {
-    let mut samples = Vec::<Vec<usize>>::with_capacity(features.len());
+pub fn sample_indices_from_weights(weights: &[usize], indices: &[Vec<usize>]) -> Vec<Vec<usize>> {
+    let mut samples = Vec::<Vec<usize>>::with_capacity(indices.len());
 
-    for &idx in features {
-        let mut sample = Vec::<usize>::with_capacity(indices[idx].len());
-        for jdx in 0..indices[idx].len() {
-            for _ in 0..weights[indices[idx][jdx]] {
-                sample.push(indices[idx][jdx]);
+    for feature_indices in indices {
+        let mut sample = Vec::<usize>::with_capacity(feature_indices.len());
+        for &index in feature_indices {
+            for _ in 0..weights[index] {
+                sample.push(index);
             }
         }
         samples.push(sample);
@@ -96,12 +92,11 @@ mod tests {
         let indices: Vec<Vec<usize>> = (0..d).map(|idx| argsort(&X.column(idx))).collect();
         let weights = sample_weights(n, &mut rng);
 
-        let features = &[0, 2, 3, 4, 6];
-        let samples = sample_indices_from_weights(&weights, &indices, features);
+        let samples = sample_indices_from_weights(&weights, &indices);
 
-        for (feature_idx, &feature) in features.iter().enumerate() {
+        for feature in 0..X.ncols() {
             assert!(is_sorted(
-                &X.column(feature).select(Axis(0), &samples[feature_idx])
+                &X.column(feature).select(Axis(0), &samples[feature])
             ));
         }
     }
