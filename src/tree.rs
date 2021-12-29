@@ -85,11 +85,6 @@ impl<'a> DecisionTree<'a> {
 
         let mut feature_order = (0..self.X.ncols()).collect::<Vec<usize>>();
         feature_order.shuffle(rng);
-        println!("start: {}, stop: {}", start, stop);
-        println!(
-            "feature_order: {:?}, constant_features: {:?}",
-            feature_order, constant_features
-        );
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
             // Note that we continue splitting until at least on non-constant feature
             // was evaluated.
@@ -103,10 +98,6 @@ impl<'a> DecisionTree<'a> {
 
             let (split, split_val, gain) = self.find_best_split(start, stop, feature);
 
-            println!(
-                "feature: {}, gain: {}, split: {}, split_val: {}",
-                feature, gain, split, split_val
-            );
             if gain < self.min_gain_to_split {
                 constant_features[feature_idx] = true;
             } else if gain > best_gain {
@@ -116,8 +107,6 @@ impl<'a> DecisionTree<'a> {
                 best_feature = feature;
             }
         }
-
-        println!("best feature: {}", best_feature);
 
         if best_gain <= self.min_gain_to_split {
             return vec![(oob_samples.to_vec(), self.mean(start, stop))];
