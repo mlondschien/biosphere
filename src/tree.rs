@@ -1,5 +1,5 @@
 use crate::utils::argsort;
-use ndarray::{s, ArrayView1, ArrayView2, Axis};
+use ndarray::{ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;
 use rand::Rng;
 
@@ -51,6 +51,7 @@ impl<'a> DecisionTree<'a> {
         DecisionTree::new(X, y, samples, None, X.ncols() as u16, None, None)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn split(
         &mut self,
         // For each `idx` in `feature_indices`, `self.samples[idx][start..stop]` are the
@@ -66,13 +67,15 @@ impl<'a> DecisionTree<'a> {
         // node.
         mut constant_features: Vec<bool>,
         current_depth: u16,
+        // sum over y[samples[idx]] for idx in start..stop.
+        sum: f64,
         rng: &mut impl Rng,
     ) -> Vec<(Vec<usize>, f64)> {
         if oob_samples.is_empty() {
             return vec![];
         }
 
-        let mean = self.mean(start, stop);
+        let mean = sum / (stop - start) as f64;
 
         if (self.max_depth.is_some() && current_depth >= self.max_depth.unwrap())
             || (stop - start) <= self.min_samples_split
@@ -84,6 +87,7 @@ impl<'a> DecisionTree<'a> {
         let mut best_split = 0;
         let mut best_split_val = 0.;
         let mut best_feature = 0;
+        let mut left_sum_at_best_split = 0.;
 
         let mut feature_order = (0..self.X.ncols()).collect::<Vec<usize>>();
         feature_order.shuffle(rng);
@@ -98,7 +102,8 @@ impl<'a> DecisionTree<'a> {
                 continue;
             }
 
-            let (split, split_val, gain) = self.find_best_split(start, stop, feature, mean);
+            let (split, split_val, gain, left_sum) =
+                self.find_best_split(start, stop, feature, mean);
 
             if gain < self.min_gain_to_split {
                 constant_features[feature_idx] = true;
@@ -107,6 +112,7 @@ impl<'a> DecisionTree<'a> {
                 best_split = split;
                 best_split_val = split_val;
                 best_feature = feature;
+                left_sum_at_best_split = left_sum;
             }
         }
 
@@ -132,6 +138,7 @@ impl<'a> DecisionTree<'a> {
             left_oob_samples,
             constant_features.clone(),
             current_depth + 1,
+            left_sum_at_best_split,
             rng,
         );
         let mut right = self.split(
@@ -140,6 +147,7 @@ impl<'a> DecisionTree<'a> {
             right_oob_samples,
             constant_features,
             current_depth + 1,
+            sum - left_sum_at_best_split,
             rng,
         );
         left.append(&mut right);
@@ -147,9 +155,13 @@ impl<'a> DecisionTree<'a> {
     }
 
     /// Calculate mean value of y[samples[0][start..stop]].
-    fn mean(&self, start: usize, stop: usize) -> f64 {
-        self.y.slice(s![start..stop]).mean().unwrap()
-    }
+    // fn mean(&self, start: usize, stop: usize) -> f64 {
+    //     let mut sum = 0.;
+    //     for idx in self.samples[0][start..stop].iter() {
+    //         sum += self.y[*idx];
+    //     }
+    //     sum / (stop - start) as f64
+    // }
 
     /// Find the best split in `self.X[start..stop, feature]`.
     fn find_best_split(
@@ -158,45 +170,45 @@ impl<'a> DecisionTree<'a> {
         stop: usize,
         feature: usize,
         mean: f64,
-    ) -> (usize, f64, f64) {
+    ) -> (usize, f64, f64, f64) {
         let samples = &self.samples[feature];
 
         // X is constant in this segment.
         if self.X[[samples[stop - 1], feature]] - self.X[[samples[start], feature]] < 1e-12 {
-            return (0, 0., 0.);
+            return (0, 0., 0., 0.);
         }
 
-        let mut cumsum = self.y[start];
+        let mut cumsum = 0.;
 
-        let n = stop - start;
         let mut max_gain = 0.;
         let mut gain: f64;
         let mut split = start;
+        let mut left_sum: f64 = 0.;
 
-        for s in 1..n {
-            cumsum += self.y[start + s];
+        for s in (start + 1)..stop {
+            cumsum += self.y[samples[s - 1]];
 
             // Hackedy hack.
-            if self.X[[samples[s + start], feature]] - self.X[[samples[s + start - 1], feature]]
-                < 1e-12
-            {
+            if self.X[[samples[s], feature]] - self.X[[samples[s - 1], feature]] < 1e-12 {
                 continue;
             }
 
-            gain = (mean * (s as f64) - cumsum).powi(2) / (s * (n - s)) as f64;
+            gain =
+                (mean * ((s - start) as f64) - cumsum).powi(2) / ((s - start) * (stop - s)) as f64;
             if gain > max_gain {
                 max_gain = gain;
                 split = s;
+                left_sum = cumsum
             }
         }
         let split_val: f64;
 
         if split == start {
-            (0, 0., 0.)
+            (0, 0., 0., 0.)
         } else {
-            split_val = self.X[[samples[split + start], feature]] / 2.
-                + self.X[[samples[split + start - 1], feature]] / 2.;
-            (split + start, split_val, max_gain)
+            split_val =
+                self.X[[samples[split], feature]] / 2. + self.X[[samples[split - 1], feature]] / 2.;
+            (split, split_val, max_gain, left_sum)
         }
     }
 
@@ -320,7 +332,7 @@ mod tests {
 
         let tree = DecisionTree::default(&X_view, &y_view);
 
-        let (split, split_val, gain) = tree.find_best_split(
+        let (split, split_val, gain, _) = tree.find_best_split(
             start,
             stop,
             feature,
@@ -454,7 +466,15 @@ mod tests {
 
         let mut tree = DecisionTree::default(&X, &y);
         let mut rng = StdRng::seed_from_u64(0);
-        let result = tree.split(0, X.nrows(), &mut oob_samples, vec![false; 4], 0, &mut rng);
+        let result = tree.split(
+            0,
+            X.nrows(),
+            &mut oob_samples,
+            vec![false; 4],
+            0,
+            y.sum(),
+            &mut rng,
+        );
 
         let mut predictions = Array1::zeros(stop - start);
         for (idxs, val) in result.iter() {
