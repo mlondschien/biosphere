@@ -76,11 +76,8 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: 'main'
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: cargo bench
-      - uses: actions/checkout@v2
-      - run: cargo bench
+      - run: |
+        cargo bench
+        git checkout ${{ github.head_ref }}
+        cargo bench
+      shell: bash -lxu {0}
