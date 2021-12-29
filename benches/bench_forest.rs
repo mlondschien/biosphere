@@ -20,17 +20,21 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
 #[allow(non_snake_case)]
 pub fn criterion_benchmark(c: &mut Criterion) {
     let seed = 0;
-    let n = 10000;
-    let d = 100;
+    let n = 50000;
+    let d = 10;
     let mut rng = StdRng::seed_from_u64(seed);
 
     let (X, y) = data(n, d, &mut rng);
 
     let X_view = X.view();
     let y_view = y.view();
-    let forest = RandomForest::new(&X_view, &y_view, None, Some(8), None, None, None, None);
+    let forest = RandomForest::new(&X_view, &y_view, None, Some(16), None, None, None, None);
     c.bench_function("forest", |b| b.iter(|| forest.predict()));
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(
+    name = benches;
+    config = Criterion::default().sample_size(10);
+    targets = criterion_benchmark
+);
 criterion_main!(benches);
