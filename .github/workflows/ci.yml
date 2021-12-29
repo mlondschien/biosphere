@@ -68,3 +68,19 @@ jobs:
         with:
           command: clippy
           args: --all -- -D warnings
+
+  bench:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: 'main'
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo bench
+      - uses: actions/checkout@v2
+      - run: cargo bench
