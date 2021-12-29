@@ -77,7 +77,7 @@ jobs:
         with:
           ref: 'main'
       - run: |
-        cargo bench
-        git checkout ${{ github.head_ref }}
-        cargo bench
-      shell: bash -lxu {0}
+          cargo bench
+          git checkout ${{ github.head_ref }}
+          cargo bench
+        shell: bash -lxu {0}
