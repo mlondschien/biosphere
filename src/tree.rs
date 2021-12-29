@@ -87,6 +87,8 @@ impl<'a> DecisionTree<'a> {
         feature_order.shuffle(rng);
 
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
+            // Note that we continue splitting until at least on non-constant feature
+            // was evaluated.
             if (feature_idx as u16 >= self.mtry) && best_gain > 0. {
                 break;
             }
@@ -344,7 +346,7 @@ mod tests {
         let y = Array::random_using(100, Uniform::new(0., 1.), &mut rng);
         let y_view = y.view();
 
-        let all_true = vec![true; X.ncols()];
+        let all_false = vec![false; X.ncols()];
         let mut tree = DecisionTree::default(&X_view, &y_view);
 
         // Separate samples s.t. `tree.samples[feature_idx][start..stop]` contains the
@@ -354,7 +356,7 @@ mod tests {
                 .column(best_feature)
                 .select(Axis(0), &tree.samples[best_feature]);
             let best_split_val = x_sorted[start] / 2. + x_sorted[start - 1] / 2.;
-            tree.split_samples(0, start, 100, &all_true, best_feature, best_split_val);
+            tree.split_samples(0, start, 100, &all_false, best_feature, best_split_val);
         }
 
         if stop < 100 {
@@ -362,7 +364,7 @@ mod tests {
                 .column(best_feature)
                 .select(Axis(0), &tree.samples[best_feature]);
             let best_split_val = x_sorted[stop] / 2. + x_sorted[stop - 1] / 2.;
-            tree.split_samples(start, stop, 100, &all_true, best_feature, best_split_val);
+            tree.split_samples(start, stop, 100, &all_false, best_feature, best_split_val);
         }
 
         let x_sorted = X
@@ -372,7 +374,7 @@ mod tests {
 
         let samples_copy = tree.samples.clone();
 
-        tree.split_samples(start, split, stop, &all_true, best_feature, best_split_val);
+        tree.split_samples(start, split, stop, &all_false, best_feature, best_split_val);
 
         for feature in 0..X.ncols() {
             assert!(is_sorted(
