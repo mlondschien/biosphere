@@ -48,7 +48,7 @@ impl<'a> RandomForest<'a> {
     }
 
     pub fn predict(&self) -> Array1<f64> {
-        let mut child = Command::new("sleep").arg("1").spawn().unwrap();
+        let mut child = Command::new("sleep").arg("5").spawn().unwrap();
         let _result = child.wait().unwrap();
 
         let mut rng = StdRng::seed_from_u64(self.seed);
