@@ -74,10 +74,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: 'main'
       - run: |
+          git checkout main
           cargo bench
           git checkout ${{ github.head_ref }}
           cargo bench
-        shell: bash -lxu {0}
+        shell: bash -lxeu {0}
