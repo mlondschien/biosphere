@@ -4,7 +4,6 @@ use crate::utils::{
 };
 use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
-use rand::seq::IteratorRandom;
 use rand::Rng;
 use rand::SeedableRng;
 
@@ -13,7 +12,7 @@ pub struct RandomForest<'a> {
     pub y: &'a ArrayView1<'a, f64>,
     pub n_trees: u16,
     pub max_depth: Option<u16>,
-    pub mtry: usize,
+    pub mtry: u16,
     pub min_samples_split: Option<usize>,
     pub min_gain_to_split: Option<f64>,
     pub seed: u64,
@@ -26,7 +25,7 @@ impl<'a> RandomForest<'a> {
         y: &'a ArrayView1<'a, f64>,
         n_trees: Option<u16>,
         max_depth: Option<u16>,
-        mtry: Option<usize>,
+        mtry: Option<u16>,
         min_samples_split: Option<usize>,
         min_gain_to_split: Option<f64>,
         seed: Option<u64>,
@@ -38,7 +37,7 @@ impl<'a> RandomForest<'a> {
             max_depth,
             min_samples_split,
             min_gain_to_split,
-            mtry: mtry.unwrap_or((X.ncols() as f64).sqrt().ceil() as usize),
+            mtry: mtry.unwrap_or((X.ncols() as f64).sqrt().floor() as u16),
             seed: seed.unwrap_or(0),
         }
     }
@@ -59,17 +58,18 @@ impl<'a> RandomForest<'a> {
             .collect();
 
         for _ in 0..self.n_trees {
+            let seed: u64 = rng.gen();
             let weights = sample_weights(n, &mut rng);
-            let features = self.sample_features(&mut rng);
             let result = predict_with_tree(
                 self.X,
                 self.y,
                 weights,
                 &indices,
-                features,
+                self.mtry,
                 self.max_depth,
                 self.min_samples_split,
                 self.min_gain_to_split,
+                seed,
             );
             for (idxs, prediction) in result {
                 for idx in idxs {
@@ -85,11 +85,11 @@ impl<'a> RandomForest<'a> {
         predictions
     }
 
-    fn sample_features(&self, rng: &mut impl Rng) -> Vec<usize> {
-        (0..self.X.ncols())
-            .into_iter()
-            .choose_multiple(rng, self.mtry)
-    }
+    // fn sample_features(&self, rng: &mut impl Rng) -> Vec<usize> {
+    //     (0..self.X.ncols())
+    //         .into_iter()
+    //         .choose_multiple(rng, self.mtry)
+    // }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -98,20 +98,21 @@ fn predict_with_tree<'b>(
     y: &'b ArrayView1<'b, f64>,
     weights: Vec<usize>,
     indices: &[Vec<usize>],
-    features: Vec<usize>,
+    mtry: u16,
     max_depth: Option<u16>,
     min_samples_split: Option<usize>,
     min_gain_to_split: Option<f64>,
+    seed: u64,
 ) -> Vec<(Vec<usize>, f64)> {
-    let samples = sample_indices_from_weights(&weights, indices, &features);
+    let samples = sample_indices_from_weights(&weights, indices);
     let mut oob_samples = oob_samples_from_weights(&weights);
-
+    let mut rng = StdRng::seed_from_u64(seed);
     let mut tree = DecisionTree::new(
         X,
         y,
-        features.clone(),
         samples,
         max_depth,
+        mtry,
         min_samples_split,
         min_gain_to_split,
     );
@@ -120,8 +121,9 @@ fn predict_with_tree<'b>(
         0,
         X.nrows(),
         &mut oob_samples,
-        (0..features.len()).collect(),
+        vec![false; X.ncols()],
         0,
+        &mut rng,
     )
 }
 
