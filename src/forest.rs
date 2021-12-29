@@ -14,6 +14,7 @@ pub struct RandomForest<'a> {
     pub max_depth: Option<u16>,
     pub mtry: u16,
     pub min_samples_split: Option<usize>,
+    pub min_samples_leaf: Option<usize>,
     pub min_gain_to_split: Option<f64>,
     pub seed: u64,
 }
@@ -28,6 +29,7 @@ impl<'a> RandomForest<'a> {
         mtry: Option<u16>,
         min_samples_split: Option<usize>,
         min_gain_to_split: Option<f64>,
+        min_samples_leaf: Option<usize>,
         seed: Option<u64>,
     ) -> Self {
         RandomForest {
@@ -37,13 +39,14 @@ impl<'a> RandomForest<'a> {
             max_depth,
             min_samples_split,
             min_gain_to_split,
+            min_samples_leaf,
             mtry: mtry.unwrap_or((X.ncols() as f64).sqrt().floor() as u16),
             seed: seed.unwrap_or(0),
         }
     }
 
     pub fn default(X: &'a ArrayView2<'a, f64>, y: &'a ArrayView1<'a, f64>) -> Self {
-        RandomForest::new(X, y, None, None, None, None, None, None)
+        RandomForest::new(X, y, None, None, None, None, None, None, None)
     }
 
     pub fn predict(&self) -> Array1<f64> {
@@ -69,6 +72,7 @@ impl<'a> RandomForest<'a> {
                 self.max_depth,
                 self.min_samples_split,
                 self.min_gain_to_split,
+                self.min_samples_leaf,
                 seed,
             );
             for (idxs, prediction) in result {
@@ -102,6 +106,7 @@ fn predict_with_tree<'b>(
     max_depth: Option<u16>,
     min_samples_split: Option<usize>,
     min_gain_to_split: Option<f64>,
+    min_samples_leaf: Option<usize>,
     seed: u64,
 ) -> Vec<(Vec<usize>, f64)> {
     let samples = sample_indices_from_weights(&weights, indices);
@@ -115,6 +120,7 @@ fn predict_with_tree<'b>(
         mtry,
         min_samples_split,
         min_gain_to_split,
+        min_samples_leaf,
     );
 
     tree.split(
@@ -140,7 +146,7 @@ mod tests {
         let X = data.slice(s![0..100, 0..4]);
         let y = data.slice(s![0..100, 4]);
 
-        let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None);
+        let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None, None);
 
         let predictions = forest.predict();
         let mse = (&predictions - &y).mapv(|x| x * x).sum();
