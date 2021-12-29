@@ -50,7 +50,7 @@ impl<'a> RandomForest<'a> {
         let mut rng = StdRng::seed_from_u64(self.seed);
 
         let n = self.X.nrows();
-        let mut predictions = Array1::zeros(self.y.len());
+        let mut predictions = Array1::<f64>::zeros(self.y.len());
         let mut n_predictions = Array1::<u32>::zeros(self.y.len());
 
         let indices: Vec<Vec<usize>> = (0..self.X.ncols())
@@ -123,6 +123,7 @@ fn predict_with_tree<'b>(
         &mut oob_samples,
         vec![false; X.ncols()],
         0,
+        None,
         &mut rng,
     )
 }
@@ -142,6 +143,13 @@ mod tests {
         let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None);
 
         let predictions = forest.predict();
-        assert!((predictions - y).mapv(|x| x * x).sum() < 0.1);
+        let mse = (&predictions - &y).mapv(|x| x * x).sum();
+        assert!(
+            mse < 0.1,
+            "mse {} \ny={:?}\npredictions={:?}",
+            mse,
+            y,
+            predictions
+        );
     }
 }
