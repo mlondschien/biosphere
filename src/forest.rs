@@ -50,9 +50,8 @@ impl<'a> RandomForest<'a> {
         let mut rng = StdRng::seed_from_u64(self.seed);
 
         let n = self.X.nrows();
-        let mut predictions = Array1::zeros(self.y.len());
+        let mut predictions = Array1::<f64>::zeros(self.y.len());
         let mut n_predictions = Array1::<u32>::zeros(self.y.len());
-        let y_sum = self.y.sum();
 
         let indices: Vec<Vec<usize>> = (0..self.X.ncols())
             .map(|col| argsort(&self.X.column(col)))
@@ -66,7 +65,6 @@ impl<'a> RandomForest<'a> {
                 self.y,
                 weights,
                 &indices,
-                y_sum,
                 self.mtry,
                 self.max_depth,
                 self.min_samples_split,
@@ -100,7 +98,6 @@ fn predict_with_tree<'b>(
     y: &'b ArrayView1<'b, f64>,
     weights: Vec<usize>,
     indices: &[Vec<usize>],
-    y_sum: f64,
     mtry: u16,
     max_depth: Option<u16>,
     min_samples_split: Option<usize>,
@@ -126,7 +123,7 @@ fn predict_with_tree<'b>(
         &mut oob_samples,
         vec![false; X.ncols()],
         0,
-        y_sum,
+        None,
         &mut rng,
     )
 }
@@ -146,7 +143,13 @@ mod tests {
         let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None);
 
         let predictions = forest.predict();
-        let mse = (predictions - y).mapv(|x| x * x).sum();
-        assert!(mse < 0.1, "mse {}", mse);
+        let mse = (&predictions - &y).mapv(|x| x * x).sum();
+        assert!(
+            mse < 0.1,
+            "mse {} \ny={:?}\npredictions={:?}",
+            mse,
+            y,
+            predictions
+        );
     }
 }

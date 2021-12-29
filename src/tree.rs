@@ -68,13 +68,16 @@ impl<'a> DecisionTree<'a> {
         mut constant_features: Vec<bool>,
         current_depth: u16,
         // sum over y[samples[idx]] for idx in start..stop.
-        sum: f64,
+        sum: Option<f64>,
         rng: &mut impl Rng,
     ) -> Vec<(Vec<usize>, f64)> {
+        assert!(start < stop);
+
         if oob_samples.is_empty() {
             return vec![];
         }
 
+        let sum = sum.unwrap_or_else(|| self.sum(start, stop));
         let mean = sum / (stop - start) as f64;
 
         if (self.max_depth.is_some() && current_depth >= self.max_depth.unwrap())
@@ -138,7 +141,7 @@ impl<'a> DecisionTree<'a> {
             left_oob_samples,
             constant_features.clone(),
             current_depth + 1,
-            left_sum_at_best_split,
+            Some(left_sum_at_best_split),
             rng,
         );
         let mut right = self.split(
@@ -147,21 +150,21 @@ impl<'a> DecisionTree<'a> {
             right_oob_samples,
             constant_features,
             current_depth + 1,
-            sum - left_sum_at_best_split,
+            Some(sum - left_sum_at_best_split),
             rng,
         );
         left.append(&mut right);
         left
     }
 
-    /// Calculate mean value of y[samples[0][start..stop]].
-    // fn mean(&self, start: usize, stop: usize) -> f64 {
-    //     let mut sum = 0.;
-    //     for idx in self.samples[0][start..stop].iter() {
-    //         sum += self.y[*idx];
-    //     }
-    //     sum / (stop - start) as f64
-    // }
+    // Calculate mean sum of y[samples[0][start..stop]].
+    fn sum(&self, start: usize, stop: usize) -> f64 {
+        let mut sum = 0.;
+        for idx in self.samples[0][start..stop].iter() {
+            sum += self.y[*idx];
+        }
+        sum
+    }
 
     /// Find the best split in `self.X[start..stop, feature]`.
     fn find_best_split(
@@ -472,7 +475,7 @@ mod tests {
             &mut oob_samples,
             vec![false; 4],
             0,
-            y.sum(),
+            None,
             &mut rng,
         );
 
