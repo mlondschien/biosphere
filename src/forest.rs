@@ -121,7 +121,7 @@ fn predict_with_tree<'b>(
         0,
         X.nrows(),
         &mut oob_samples,
-        vec![true; X.ncols()],
+        vec![false; X.ncols()],
         0,
         &mut rng,
     )
@@ -142,8 +142,6 @@ mod tests {
         let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None);
 
         let predictions = forest.predict();
-        println!("y={:?}", y);
-        println!("predictions={:?}", predictions);
         assert!((predictions - y).mapv(|x| x * x).sum() < 0.1);
     }
 }
