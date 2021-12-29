@@ -66,7 +66,7 @@ impl<'a> DecisionTree<'a> {
         // node.
         mut constant_features: Vec<bool>,
         current_depth: u16,
-        mut rng: &mut impl Rng,
+        rng: &mut impl Rng,
     ) -> Vec<(Vec<usize>, f64)> {
         if oob_samples.is_empty() {
             return vec![];
@@ -129,7 +129,7 @@ impl<'a> DecisionTree<'a> {
             left_oob_samples,
             constant_features.clone(),
             current_depth + 1,
-            &mut rng,
+            rng,
         );
         let mut right = self.split(
             best_split,
@@ -137,7 +137,7 @@ impl<'a> DecisionTree<'a> {
             right_oob_samples,
             constant_features,
             current_depth + 1,
-            &mut rng,
+            rng,
         );
         left.append(&mut right);
         left
