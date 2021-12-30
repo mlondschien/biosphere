@@ -1,9 +1,9 @@
+use biosphere::RandomForest;
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{Array, Array1, Array2};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
-use oobforest::RandomForest;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
