@@ -6,7 +6,6 @@ use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-use std::process::Command;
 
 pub struct RandomForest<'a> {
     pub X: &'a ArrayView2<'a, f64>,
@@ -48,9 +47,6 @@ impl<'a> RandomForest<'a> {
     }
 
     pub fn predict(&self) -> Array1<f64> {
-        let mut child = Command::new("sleep").arg("5").spawn().unwrap();
-        let _result = child.wait().unwrap();
-
         let mut rng = StdRng::seed_from_u64(self.seed);
 
         let n = self.X.nrows();
@@ -88,12 +84,6 @@ impl<'a> RandomForest<'a> {
         }
         predictions
     }
-
-    // fn sample_features(&self, rng: &mut impl Rng) -> Vec<usize> {
-    //     (0..self.X.ncols())
-    //         .into_iter()
-    //         .choose_multiple(rng, self.mtry)
-    // }
 }
 
 #[allow(clippy::too_many_arguments)]
