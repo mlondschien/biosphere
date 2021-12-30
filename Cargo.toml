@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 licnese-file = "LICENSE"
 version = "0.1.0"
 edition = "2018"
-exclude = ["/.github", "/changeforest-py"]
+exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yml"]
 
 [lib]
 name = "biosphere"
