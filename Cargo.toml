@@ -1,10 +1,10 @@
 [package]
-name = "oobforest"
-version = "0.0.0"
+name = "biosphere"
+version = "0.1.0"
 edition = "2018"
 
 [lib]
-name = "oobforest"
+name = "biosphere"
 
 [dependencies]
 ndarray = "0.15.3"
@@ -17,9 +17,7 @@ lto = "fat"
 
 [dev-dependencies]
 rstest = "0.11.0"
-assert_approx_eq = "1.1.0"
 ndarray-rand = "0.14.0"
-ndarray = { version = "0.15.3", features = ["approx"] }
 csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.3.0"

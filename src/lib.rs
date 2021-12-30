@@ -3,6 +3,7 @@
 pub use forest::RandomForest;
 pub use tree::DecisionTree;
 mod forest;
+mod quick_sort;
 mod tree;
 mod utils;
 

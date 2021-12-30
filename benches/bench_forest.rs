@@ -1,9 +1,9 @@
+use biosphere::RandomForest;
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{Array, Array1, Array2};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
-use oobforest::RandomForest;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -28,7 +28,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let X_view = X.view();
     let y_view = y.view();
-    let forest = RandomForest::new(&X_view, &y_view, None, Some(16), None, None, None, None);
+    let forest = RandomForest::new(
+        &X_view,
+        &y_view,
+        None,
+        Some(16),
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
     c.bench_function("forest", |b| b.iter(|| forest.predict()));
 }
 

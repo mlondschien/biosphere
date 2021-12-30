@@ -20,9 +20,12 @@ pub struct DecisionTree<'a> {
     pub min_samples_split: usize,
     // Minimum gain required to split a node. Can be seen as a threshold.
     pub min_gain_to_split: f64,
+    //
+    pub min_samples_leaf: usize,
 }
 
 impl<'a> DecisionTree<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         X: &'a ArrayView2<'a, f64>,
         y: &'a ArrayView1<'a, f64>,
@@ -31,6 +34,7 @@ impl<'a> DecisionTree<'a> {
         mtry: u16,
         min_samples_split: Option<usize>,
         min_gain_to_split: Option<f64>,
+        min_samples_leaf: Option<usize>,
     ) -> Self {
         DecisionTree {
             X,
@@ -40,6 +44,7 @@ impl<'a> DecisionTree<'a> {
             mtry,
             min_samples_split: min_samples_split.unwrap_or(2),
             min_gain_to_split: min_gain_to_split.unwrap_or(1e-6),
+            min_samples_leaf: min_samples_leaf.unwrap_or(1),
         }
     }
 
@@ -48,7 +53,7 @@ impl<'a> DecisionTree<'a> {
             .axis_iter(Axis(1))
             .map(|x| argsort(&x))
             .collect::<Vec<Vec<usize>>>();
-        DecisionTree::new(X, y, samples, None, X.ncols() as u16, None, None)
+        DecisionTree::new(X, y, samples, None, X.ncols() as u16, None, None, None)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -188,7 +193,11 @@ impl<'a> DecisionTree<'a> {
         let mut split = start;
         let mut left_sum: f64 = 0.;
 
-        for s in (start + 1)..stop {
+        for s in 1..(self.min_samples_leaf) {
+            cumsum += self.y[samples[s - 1]];
+        }
+
+        for s in (start + self.min_samples_leaf)..(stop - self.min_samples_leaf + 1) {
             cumsum += self.y[samples[s - 1]];
 
             // Hackedy hack.
