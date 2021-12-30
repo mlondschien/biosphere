@@ -88,12 +88,6 @@ impl<'a> RandomForest<'a> {
         }
         predictions
     }
-
-    // fn sample_features(&self, rng: &mut impl Rng) -> Vec<usize> {
-    //     (0..self.X.ncols())
-    //         .into_iter()
-    //         .choose_multiple(rng, self.mtry)
-    // }
 }
 
 #[allow(clippy::too_many_arguments)]

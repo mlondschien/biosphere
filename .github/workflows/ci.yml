@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest] # , windows-latest, macos-latest]
 
     steps:
     - uses: actions/checkout@v2
@@ -68,3 +68,20 @@ jobs:
         with:
           command: clippy
           args: --all -- -D warnings
+
+  bench:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      # Run everything in a single shell. This way criterion remembers previous results
+      # and can print comparisons.
+      - name: Run benchmarks
+        run: |
+          git checkout main
+          cargo bench
+          git checkout ${{ github.head_ref }}
+          cargo bench
+        shell: bash -lxeu {0}
