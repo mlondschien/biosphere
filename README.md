@@ -1,3 +1,5 @@
-## OOB forest
+## Biosphere
 
-For Out-Of-Bag predictions only.
+Simple, fast random forests.
+
+Currently supports Out-Of-Bag predictions only.
