@@ -1,4 +1,4 @@
-project]
+[project]
 name = "biosphere"
 description = "Simple, fast random forests"
 readme = "README.md"
