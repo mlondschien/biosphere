@@ -28,8 +28,8 @@ impl<'a> RandomForest<'a> {
         max_depth: Option<u16>,
         mtry: Option<u16>,
         min_samples_split: Option<usize>,
-        min_gain_to_split: Option<f64>,
         min_samples_leaf: Option<usize>,
+        min_gain_to_split: Option<f64>,
         seed: Option<u64>,
     ) -> Self {
         RandomForest {
@@ -37,10 +37,10 @@ impl<'a> RandomForest<'a> {
             y,
             n_trees: n_trees.unwrap_or(100),
             max_depth,
-            min_samples_split,
-            min_gain_to_split,
-            min_samples_leaf,
             mtry: mtry.unwrap_or((X.ncols() as f64).sqrt().floor() as u16),
+            min_samples_split,
+            min_samples_leaf,
+            min_gain_to_split,
             seed: seed.unwrap_or(0),
         }
     }
