@@ -346,7 +346,7 @@ mod tests {
     use ndarray::{arr1, arr2, s, Array, Array1};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
-    use rand::rngs::SmallRng;
+    use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rstest::*;
 
@@ -401,7 +401,7 @@ mod tests {
         #[case] stop: usize,
         #[case] best_feature: usize,
     ) {
-        let mut rng = SmallRng::seed_from_u64(0);
+        let mut rng = StdRng::seed_from_u64(0);
         let X = Array::random_using((100, 10), Uniform::new(0., 1.), &mut rng);
         let X_view = X.view();
         let y = Array::random_using(100, Uniform::new(0., 1.), &mut rng);
@@ -510,7 +510,7 @@ mod tests {
         let mut oob_samples = (start..stop).collect::<Vec<_>>();
 
         let mut tree = DecisionTree::default(&X, &y);
-        let mut rng = SmallRng::seed_from_u64(0);
+        let mut rng = StdRng::seed_from_u64(0);
         let result = tree.split(
             0,
             X.nrows(),

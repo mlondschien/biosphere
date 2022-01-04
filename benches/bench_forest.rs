@@ -5,7 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{s, Array, Array1, Array2};
 use ndarray_rand::rand_distr::{Bernoulli, Uniform};
 use ndarray_rand::RandomExt;
-use rand::rngs::SmallRng;
+use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 
@@ -36,7 +36,7 @@ pub fn benchmark_forest(c: &mut Criterion) {
     let seed = 0;
     let n = 50000;
     let d = 10;
-    let mut rng = SmallRng::seed_from_u64(seed);
+    let mut rng = StdRng::seed_from_u64(seed);
 
     let (X, y) = data(n, d, &mut rng);
 

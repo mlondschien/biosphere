@@ -6,15 +6,15 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use ndarray::Array;
 use ndarray_rand::rand_distr::{Bernoulli, Uniform};
 use ndarray_rand::RandomExt;
-use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use rand_isaac::isaac64::Isaac64Rng;
 
 pub fn benchmark_utils(c: &mut Criterion) {
     let seed = 0;
     let mut group = c.benchmark_group("argsort");
     let sizes: &[usize] = &[1000, 10000, 100000, 1000000];
     for &size in sizes.iter() {
-        let mut rng = SmallRng::seed_from_u64(seed);
+        let mut rng = Isaac64Rng::seed_from_u64(seed);
         let x = Array::random_using(size, Uniform::new(0., 1.), &mut rng);
         group.bench_with_input(BenchmarkId::new("argsort_continuous", size), &x, |b, x| {
             b.iter(|| argsort(&x))
