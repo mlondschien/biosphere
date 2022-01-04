@@ -239,31 +239,67 @@ impl<'a> DecisionTree<'a> {
         best_feature: usize,
         best_split_val: f64,
     ) {
-        let mut right_temp = Vec::<usize>::with_capacity(stop - split);
+        // Either store left or right samples in temporary vector, depending on which
+        // is smaller. The others are done in-place.
+        if stop - split <= split - start {
+            let mut right_temp = Vec::<usize>::with_capacity(stop - split);
 
-        let mut current_left: usize;
-        for (feature, &is_constant) in constant_features.iter().enumerate() {
-            if feature == best_feature || is_constant {
-                continue;
-            }
-            // https://stackoverflow.com/a/10334085/10586763
-            // Even digits in the example correspond to indices belonging to the right
-            // node, odd digits to the left.
-
-            // samples[start, .., current_left) contains (sorted by X) indices belonging
-            // to the left node.
-            current_left = start;
-            for idx in start..stop {
-                if self.X[[self.samples[feature][idx], best_feature]] > best_split_val {
-                    right_temp.push(self.samples[feature][idx]);
-                } else {
-                    self.samples[feature][current_left] = self.samples[feature][idx];
-                    current_left += 1;
+            let mut samples: &mut [usize];
+            let mut current_left: usize;
+            for (feature, &is_constant) in constant_features.iter().enumerate() {
+                if feature == best_feature || is_constant {
+                    continue;
                 }
-            }
+                samples = &mut self.samples[feature];
+                // https://stackoverflow.com/a/10334085/10586763
+                // Even digits in the example correspond to indices belonging to the right
+                // node, odd digits to the left.
 
-            self.samples[feature][split..stop].copy_from_slice(&right_temp);
-            right_temp.clear();
+                // samples[start, .., current_left) contains (sorted by X) indices belonging
+                // to the left node.
+                current_left = start;
+
+                for idx in start..stop {
+                    if self.X[[samples[idx], best_feature]] > best_split_val {
+                        //right_temp.push(samples[idx]);
+                        right_temp.push(samples[idx]);
+                    } else {
+                        samples[current_left] = samples[idx];
+                        current_left += 1;
+                    }
+                }
+                self.samples[feature][split..stop].copy_from_slice(&right_temp);
+                right_temp.clear()
+            }
+        } else {
+            let mut left_temp: Vec<usize> = vec![0; split - start]; //Vec::<usize>::with_capacity(split - start);
+
+            let mut samples: &mut [usize];
+            let mut current_right: usize;
+
+            for (feature, &is_constant) in constant_features.iter().enumerate() {
+                if feature == best_feature || is_constant {
+                    continue;
+                }
+                samples = &mut self.samples[feature];
+
+                // samples[split, .., current_right) contains (sorted by X) indices belonging
+                // to the right node.
+                current_right = stop;
+                let mut idx_left_temp = split - start;
+
+                for idx in (start..stop).rev() {
+                    if self.X[[samples[idx], best_feature]] > best_split_val {
+                        current_right -= 1;
+                        samples[current_right] = samples[idx];
+                    } else {
+                        idx_left_temp -= 1;
+                        left_temp[idx_left_temp] = samples[idx];
+                        //left_temp.push(samples[idx]);
+                    }
+                }
+                self.samples[feature][start..split].copy_from_slice(&left_temp);
+            }
         }
     }
 }
