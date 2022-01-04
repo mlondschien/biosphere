@@ -43,7 +43,7 @@ impl<'a> DecisionTree<'a> {
             max_depth,
             mtry,
             min_samples_split: min_samples_split.unwrap_or(2),
-            min_gain_to_split: min_gain_to_split.unwrap_or(1e-6),
+            min_gain_to_split: min_gain_to_split.unwrap_or(1e-12),
             min_samples_leaf: min_samples_leaf.unwrap_or(1),
         }
     }
@@ -172,7 +172,7 @@ impl<'a> DecisionTree<'a> {
     }
 
     /// Find the best split in `self.X[start..stop, feature]`.
-    fn find_best_split(
+    pub fn find_best_split(
         &self,
         start: usize,
         stop: usize,
@@ -180,7 +180,6 @@ impl<'a> DecisionTree<'a> {
         mean: f64,
     ) -> (usize, f64, f64, f64) {
         let samples = &self.samples[feature];
-
         // X is constant in this segment.
         if self.X[[samples[stop - 1], feature]] - self.X[[samples[start], feature]] < 1e-12 {
             return (0, 0., 0., 0.);
@@ -242,14 +241,11 @@ impl<'a> DecisionTree<'a> {
     ) {
         let mut right_temp = Vec::<usize>::with_capacity(stop - split);
 
-        let mut samples: &mut [usize];
         let mut current_left: usize;
-
         for (feature, &is_constant) in constant_features.iter().enumerate() {
             if feature == best_feature || is_constant {
                 continue;
             }
-            samples = &mut self.samples[feature];
             // https://stackoverflow.com/a/10334085/10586763
             // Even digits in the example correspond to indices belonging to the right
             // node, odd digits to the left.
@@ -258,13 +254,14 @@ impl<'a> DecisionTree<'a> {
             // to the left node.
             current_left = start;
             for idx in start..stop {
-                if self.X[[samples[idx], best_feature]] > best_split_val {
-                    right_temp.push(samples[idx]);
+                if self.X[[self.samples[feature][idx], best_feature]] > best_split_val {
+                    right_temp.push(self.samples[feature][idx]);
                 } else {
-                    samples[current_left] = samples[idx];
+                    self.samples[feature][current_left] = self.samples[feature][idx];
                     current_left += 1;
                 }
             }
+
             self.samples[feature][split..stop].copy_from_slice(&right_temp);
             right_temp.clear();
         }

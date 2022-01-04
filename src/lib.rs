@@ -5,7 +5,7 @@ pub use tree::DecisionTree;
 mod forest;
 mod quick_sort;
 mod tree;
-mod utils;
+pub mod utils;
 
 #[cfg(test)]
 mod testing;
