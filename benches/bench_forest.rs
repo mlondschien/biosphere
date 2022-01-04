@@ -47,7 +47,7 @@ pub fn benchmark_forest(c: &mut Criterion) {
         &y_view,
         None,
         Some(4),
-        Some(4),
+        Some(10),
         None,
         None,
         None,
