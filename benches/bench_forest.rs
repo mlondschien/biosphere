@@ -34,7 +34,7 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
 #[allow(non_snake_case)]
 pub fn benchmark_forest(c: &mut Criterion) {
     let seed = 0;
-    let n = 50000;
+    let n = 100000;
     let d = 10;
     let mut rng = StdRng::seed_from_u64(seed);
 
