@@ -1,0 +1,95 @@
+use biosphere::utils::{
+    argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
+};
+use biosphere::DecisionTree;
+
+#[cfg(test)]
+use criterion::{criterion_group, criterion_main, Criterion};
+use ndarray::{Array, Array1, Array2};
+use ndarray_rand::rand_distr::Uniform;
+use ndarray_rand::RandomExt;
+use rand::rngs::StdRng;
+use rand::Rng;
+use rand::SeedableRng;
+
+#[allow(non_snake_case)]
+pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>) {
+    let X = Array::random_using((n, d), Uniform::new(0., 1.), rng);
+    let y = Array::random_using(n, Uniform::new(0., 1.), rng);
+    let y = y + X.column(0) + X.column(1).map(|x| x - x * x);
+
+    (X, y)
+}
+
+#[allow(non_snake_case)]
+pub fn benchmark_tree(c: &mut Criterion) {
+    let seed = 0;
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut group = c.benchmark_group("tree_split");
+
+    for (n, d, max_depth, mtry) in &[
+        (100, 10, 4, 10),
+        (1000, 10, 4, 10),
+        (10000, 10, 4, 10),
+        (10000, 10, 16, 10),
+        (10000, 100, 4, 10),
+        (10000, 100, 4, 100),
+        (100000, 10, 4, 10),
+    ] {
+        let (X, y) = data(*n, *d, &mut rng);
+
+        let X_view = X.view();
+        let y_view = y.view();
+
+        let weights = sample_weights(*n, &mut rng);
+        let indices: Vec<Vec<usize>> = (0..*d).map(|col| argsort(&X.column(col))).collect();
+        let samples = sample_indices_from_weights(&weights, &indices);
+        let mut oob_samples = oob_samples_from_weights(&weights);
+
+        group.bench_function(
+            format!(
+                "tree_n={}, d={}, max_depth={}, mtry={}",
+                n, d, max_depth, mtry
+            )
+            .as_str(),
+            |b| {
+                b.iter(|| {
+                    let mut tree = DecisionTree::new(
+                        &X_view,
+                        &y_view,
+                        samples.clone(),
+                        Some(*max_depth),
+                        *mtry as u16,
+                        None,
+                        None,
+                        None,
+                    );
+                    tree.split(0, *n, &mut oob_samples, vec![false; *d], 0, None, &mut rng)
+                })
+            },
+        );
+    }
+    group.finish();
+
+    // let group = c.benchmark_group("tree_methods");
+
+    // let n = 100000;
+    // let d = 2;
+
+    // let (X, y) = data(n, d, &mut rng);
+    // let X_view = X.view();
+    // let y_view = y.view();
+
+    // // let weights = sample_weights(n, &mut rng);
+    // // let indices: Vec<Vec<usize>> = (0..d).map(|col| argsort(&X.column(col))).collect();
+    // // let samples = sample_indices_from_weights(&weights, &indices);
+
+    // let mut tree = DecisionTree::default(
+    //     &X_view,
+    //     &y_view,
+    // );
+}
+
+criterion_group!(bench_tree, benchmark_tree);
+
+criterion_main!(bench_tree);

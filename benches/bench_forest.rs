@@ -1,4 +1,5 @@
 use biosphere::RandomForest;
+
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{Array, Array1, Array2};
@@ -18,7 +19,7 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
 }
 
 #[allow(non_snake_case)]
-pub fn criterion_benchmark(c: &mut Criterion) {
+pub fn benchmark_forest(c: &mut Criterion) {
     let seed = 0;
     let n = 50000;
     let d = 10;
@@ -43,8 +44,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 }
 
 criterion_group!(
-    name = benches;
-    config = Criterion::default().sample_size(25);
-    targets = criterion_benchmark
+    name = forest;
+    config = Criterion::default().sample_size(10);
+    targets = benchmark_forest
 );
-criterion_main!(benches);
+
+criterion_main!(forest);
