@@ -8,7 +8,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{s, Array, Array1, Array2};
 use ndarray_rand::rand_distr::{Bernoulli, Uniform};
 use ndarray_rand::RandomExt;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 
@@ -37,7 +37,7 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
 #[allow(non_snake_case)]
 pub fn benchmark_tree(c: &mut Criterion) {
     let seed = 0;
-    let mut rng = StdRng::seed_from_u64(seed);
+    let mut rng = SmallRng::seed_from_u64(seed);
     let mut group = c.benchmark_group("tree_split");
 
     for (n, d, max_depth, mtry) in &[

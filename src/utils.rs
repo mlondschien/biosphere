@@ -55,13 +55,13 @@ mod tests {
     use ndarray::{Array, Axis};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
-    use rand::rngs::StdRng;
+    use rand::rngs::SmallRng;
     use rand::SeedableRng;
 
     #[test]
     fn test_argsort() {
         let seed = 7;
-        let mut rng = StdRng::seed_from_u64(seed);
+        let mut rng = SmallRng::seed_from_u64(seed);
         let n = 100;
         let x = Array::random_using(n, Uniform::new(0., 1.), &mut rng);
 
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_sample_weights() {
         let seed = 7;
-        let mut rng = StdRng::seed_from_u64(seed);
+        let mut rng = SmallRng::seed_from_u64(seed);
         let n = 100;
 
         let weights = sample_weights(n, &mut rng);
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_sample_indices_from_weights() {
         let seed = 7;
-        let mut rng = StdRng::seed_from_u64(seed);
+        let mut rng = SmallRng::seed_from_u64(seed);
         let n = 100;
         let d = 8;
 
