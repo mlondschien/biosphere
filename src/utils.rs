@@ -1,3 +1,4 @@
+use introsort::sort_by;
 use ndarray::{ArrayBase, Data, Ix1};
 use rand::Rng;
 
@@ -8,7 +9,9 @@ use rand::Rng;
 /// data: Array1<f64> or ArrayView<f64>
 pub fn argsort(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Vec<usize> {
     let mut indices = (0..data.len()).collect::<Vec<usize>>();
-    indices.sort_unstable_by(|a, b| data[*a].partial_cmp(&data[*b]).unwrap());
+    sort_by(&mut indices, &|&i, &j| {
+        data[i].partial_cmp(&data[j]).unwrap()
+    });
     indices
 }
 
