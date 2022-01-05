@@ -11,7 +11,7 @@ use rand::SeedableRng;
 
 pub fn benchmark_utils(c: &mut Criterion) {
     let seed = 0;
-    let mut group = c.benchmark_group("argsort");
+    let mut group = c.benchmark_group("utils");
     let sizes: &[usize] = &[1000, 10000, 100000, 1000000];
     for &size in sizes.iter() {
         let mut rng = StdRng::seed_from_u64(seed);
