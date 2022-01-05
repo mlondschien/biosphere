@@ -8,12 +8,12 @@ static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 #[derive(Clone)]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree.
-    pub max_depth: Option<u16>,
-    pub mtry: Option<u16>,
+    max_depth: Option<u16>,
+    mtry: Option<u16>,
     // Minimum number of samples required to split a node.
-    pub min_samples_split: usize,
+    min_samples_split: usize,
     //
-    pub min_samples_leaf: usize,
+    min_samples_leaf: usize,
 }
 
 impl DecisionTreeParameters {
@@ -63,8 +63,8 @@ impl DecisionTreeParameters {
 
 #[derive(Clone)]
 pub struct DecisionTree<'a> {
-    pub X: &'a ArrayView2<'a, f64>,
-    pub y: &'a ArrayView1<'a, f64>,
+    X: &'a ArrayView2<'a, f64>,
+    y: &'a ArrayView1<'a, f64>,
     // Vector of vectors of in-bag indices. The outer vector should be of the same
     // length as features. All inner vectors should be of the same length, each
     // containing the same in-bag indices, however in different order. The ordering
@@ -76,7 +76,6 @@ pub struct DecisionTree<'a> {
 }
 
 impl<'a> DecisionTree<'a> {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         X: &'a ArrayView2<'a, f64>,
         y: &'a ArrayView1<'a, f64>,
@@ -171,7 +170,7 @@ impl<'a> DecisionTree<'a> {
             }
         }
 
-        if best_gain <= MIN_GAIN_TO_SPLIT {
+        if best_gain <= 0. {
             return vec![(oob_samples.to_vec(), mean)];
         }
 
@@ -238,11 +237,13 @@ impl<'a> DecisionTree<'a> {
         let mut split = start;
         let mut left_sum: f64 = 0.;
 
-        for s in 1..(self.decision_tree_parameters.min_samples_leaf) {
-            cumsum += self.y[samples[s - 1]];
+        for &sample in
+            samples[start..(start + self.decision_tree_parameters.min_samples_leaf)].iter()
+        {
+            cumsum += self.y[sample];
         }
 
-        for s in (start + self.decision_tree_parameters.min_samples_leaf)
+        for s in (start + self.decision_tree_parameters.min_samples_leaf + 1)
             ..(stop - self.decision_tree_parameters.min_samples_leaf + 1)
         {
             cumsum += self.y[samples[s - 1]];
@@ -277,6 +278,7 @@ impl<'a> DecisionTree<'a> {
         // We also normalize by (stop - start).
         let max_gain =
             -(sum / (stop - start) as f64).powi(2) + max_proxy_gain / (stop - start) as f64;
+
         let split_val: f64;
 
         if split == start {
