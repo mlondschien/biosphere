@@ -3,6 +3,8 @@ use ndarray::{ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;
 use rand::Rng;
 
+static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
+
 #[derive(Clone)]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree.
@@ -158,7 +160,7 @@ impl<'a> DecisionTree<'a> {
             let (split, split_val, gain, left_sum) =
                 self.find_best_split(start, stop, feature, sum);
 
-            if gain <= 0. {
+            if gain <= MIN_GAIN_TO_SPLIT {
                 constant_features[feature_idx] = true;
             } else if gain > best_gain {
                 best_gain = gain;
@@ -169,7 +171,7 @@ impl<'a> DecisionTree<'a> {
             }
         }
 
-        if best_gain <= 0. {
+        if best_gain <= MIN_GAIN_TO_SPLIT {
             return vec![(oob_samples.to_vec(), mean)];
         }
 
