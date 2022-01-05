@@ -185,24 +185,21 @@ impl<'a> DecisionTree<'a> {
             return (0, 0., 0., 0.);
         }
 
-        // let mut cumsum = 0.;
+        let mut cumsum = 0.;
         let mut max_proxy_gain = 0.;
         let mut proxy_gain: f64;
         let mut split = start;
-        // let mut left_sum: f64 = 0.;
+        let mut left_sum: f64 = 0.;
 
-        let mut cumsum = self.y.select(Axis(0), &samples[start..stop]);
-        cumsum.accumulate_axis_inplace(Axis(0), |&prev, cur| *cur += prev);
+        for s in 1..(self.min_samples_leaf) {
+            cumsum += self.y[samples[s - 1]];
+        }
 
-        // for s in 1..(self.min_samples_leaf) {
-        //     cumsum += self.y[samples[s - 1]];
-        // }
-        let segment_length = stop - start;
-        for s in self.min_samples_leaf..(segment_length - self.min_samples_leaf + 1) {
+        for s in (start + self.min_samples_leaf)..(stop - self.min_samples_leaf + 1) {
+            cumsum += self.y[samples[s - 1]];
+
             // Hackedy hack.
-            if self.X[[samples[s + start], feature]] - self.X[[samples[s - 1 + start], feature]]
-                < 1e-12
-            {
+            if self.X[[samples[s], feature]] - self.X[[samples[s - 1], feature]] < 1e-12 {
                 continue;
             }
 
@@ -214,11 +211,12 @@ impl<'a> DecisionTree<'a> {
             // L(start, s) + L(s, stop) = \sum_{i=start+1}^stop y_i^2 - 1 / (s - start) (sum_{i=start+1}^v y_i)^2 - 1 / (stop - s) (sum_{i=s+1}^stop y_i)^2.
             // The first term is independent of s, so does not need to be calculated to find the best split.
             // We find the maximum of the negative of the second term, which is the proxy gain.
-            proxy_gain = cumsum[s - 1] * cumsum[s - 1] / s as f64
-                + (sum - cumsum[s - 1]) * (sum - cumsum[s - 1]) / (segment_length - s) as f64;
+            proxy_gain = cumsum * cumsum / (s - start) as f64
+                + (sum - cumsum) * (sum - cumsum) / (stop - s) as f64;
             if proxy_gain > max_proxy_gain {
                 max_proxy_gain = proxy_gain;
                 split = s;
+                left_sum = cumsum;
             }
         }
 
@@ -229,15 +227,15 @@ impl<'a> DecisionTree<'a> {
         // G(s) = - 1 / (stop - start) * (\sum_{i=start+1}^stop y_i) ^ 2 + proxy_gain(s).
         // We also normalize by (stop - start).
         let max_gain =
-            -(sum / (segment_length) as f64).powi(2) + max_proxy_gain / (segment_length) as f64;
+            -(sum / (stop - start) as f64).powi(2) + max_proxy_gain / (stop - start) as f64;
         let split_val: f64;
 
         if split == start {
             (0, 0., 0., 0.)
         } else {
-            split_val = self.X[[samples[split + start], feature]] / 2.
-                + self.X[[samples[split + start - 1], feature]] / 2.;
-            (split + start, split_val, max_gain, cumsum[split - 1])
+            split_val =
+                self.X[[samples[split], feature]] / 2. + self.X[[samples[split - 1], feature]] / 2.;
+            (split, split_val, max_gain, left_sum)
         }
     }
 
