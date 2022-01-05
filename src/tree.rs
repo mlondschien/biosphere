@@ -111,7 +111,7 @@ impl<'a> DecisionTree<'a> {
             }
 
             let (split, split_val, gain, left_sum) =
-                self.find_best_split(start, stop, feature, mean);
+                self.find_best_split(start, stop, feature, sum);
 
             if gain < self.min_gain_to_split {
                 constant_features[feature_idx] = true;
@@ -177,7 +177,7 @@ impl<'a> DecisionTree<'a> {
         start: usize,
         stop: usize,
         feature: usize,
-        mean: f64,
+        sum: f64,
     ) -> (usize, f64, f64, f64) {
         let samples = &self.samples[feature];
         // X is constant in this segment.
@@ -186,9 +186,8 @@ impl<'a> DecisionTree<'a> {
         }
 
         let mut cumsum = 0.;
-
-        let mut max_gain = 0.;
-        let mut gain: f64;
+        let mut max_proxy_gain = 0.;
+        let mut proxy_gain: f64;
         let mut split = start;
         let mut left_sum: f64 = 0.;
 
@@ -204,14 +203,31 @@ impl<'a> DecisionTree<'a> {
                 continue;
             }
 
-            gain =
-                (mean * ((s - start) as f64) - cumsum).powi(2) / ((s - start) * (stop - s)) as f64;
-            if gain > max_gain {
-                max_gain = gain;
+            // Inspired by https://github.com/scikit-learn/scikit-learn/blob/cb4688ad15f052d7c55b1d3f09ee65bc3d5bb24b/sklearn/tree/_criterion.pyx#L900
+            // The RSS after fitting a mean to (u, v] is L(u, v) = sum_{i=u+1}^v (y_i - mean)^2.
+            // Here mean = 1 / (v - u) * sum_{i=u+1}^v y_i.
+            // Then L(u, v) = \sum_{i=u+1}^v y_i^2 - 1 / (v - u) (sum_{i=u+1} y_i)^2.
+            // The node impurity splitting at s is
+            // L(start, s) + L(s, stop) = \sum_{i=start+1}^stop y_i^2 - 1 / (s - start) (sum_{i=start+1}^v y_i)^2 - 1 / (stop - s) (sum_{i=s+1}^stop y_i)^2.
+            // The first term is independent of s, so does not need to be calculated to find the best split.
+            // We find the maximum of the negative of the second term, which is the proxy gain.
+            proxy_gain = cumsum * cumsum / (s - start) as f64
+                + (sum - cumsum) * (sum - cumsum) / (stop - s) as f64;
+            if proxy_gain > max_proxy_gain {
+                max_proxy_gain = proxy_gain;
                 split = s;
-                left_sum = cumsum
+                left_sum = cumsum;
             }
         }
+
+        // We are interested in the gain when splitting at s, the improvement in impurity
+        // through splitting: G(s) = L(start, stop) - L(start, s) - L(s, stop).
+        // The gain is always non-negative. If its maximum value is zero, then y is constant
+        // on (start, stop). Then
+        // G(s) = - 1 / (stop - start) * (\sum_{i=start+1}^stop y_i) ^ 2 + proxy_gain(s).
+        // We also normalize by (stop - start).
+        let max_gain =
+            -(sum / (stop - start) as f64).powi(2) + max_proxy_gain / (stop - start) as f64;
         let split_val: f64;
 
         if split == start {
@@ -343,6 +359,7 @@ fn split_oob_samples<'b>(
 mod tests {
     use super::*;
     use crate::testing::{is_sorted, load_iris};
+    use assert_approx_eq::*;
     use ndarray::{arr1, arr2, s, Array, Array1};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
@@ -377,17 +394,12 @@ mod tests {
 
         let tree = DecisionTree::default(&X_view, &y_view);
 
-        let (split, split_val, gain, _) = tree.find_best_split(
-            start,
-            stop,
-            feature,
-            y.slice(s![start..stop]).mean().unwrap(),
-        );
+        let (split, split_val, gain, _) =
+            tree.find_best_split(start, stop, feature, y.slice(s![start..stop]).sum());
 
-        assert_eq!(
-            (expected_split, expected_split_val, expected_gain),
-            (split, split_val, gain)
-        );
+        assert_eq!((expected_split, expected_split_val), (split, split_val));
+
+        assert_approx_eq!(expected_gain, gain);
     }
 
     #[rstest]
