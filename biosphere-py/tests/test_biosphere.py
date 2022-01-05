@@ -9,6 +9,7 @@ def test_predict_oob():
     data = np.loadtxt(_IRIS_PATH, skiprows=1, delimiter=",", usecols=(0, 1, 2, 3, 4))
     X = data[:, 0:4]
     y = data[:, 4]
-    result = predict_oob(X, y, None, None, 2, 1)
+    result = predict_oob(X, y, 100, None, 2, 1)
     mse = np.mean((result - y) ** 2)
+    breakpoint()
     assert mse < 0.05
