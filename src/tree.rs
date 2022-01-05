@@ -4,6 +4,62 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 
 #[derive(Clone)]
+pub struct DecisionTreeParameters {
+    // Maximum depth of the tree.
+    pub max_depth: Option<u16>,
+    pub mtry: Option<u16>,
+    // Minimum number of samples required to split a node.
+    pub min_samples_split: usize,
+    //
+    pub min_samples_leaf: usize,
+}
+
+impl DecisionTreeParameters {
+    pub fn default() -> Self {
+        DecisionTreeParameters {
+            max_depth: None,
+            mtry: None,
+            min_samples_split: 2,
+            min_samples_leaf: 1,
+        }
+    }
+
+    pub fn new(
+        max_depth: Option<u16>,
+        mtry: Option<u16>,
+        min_samples_split: usize,
+        min_samples_leaf: usize,
+    ) -> Self {
+        DecisionTreeParameters {
+            max_depth,
+            mtry,
+            min_samples_split,
+            min_samples_leaf,
+        }
+    }
+
+    pub fn with_max_depth(mut self, max_depth: Option<u16>) -> Self {
+        self.max_depth = max_depth;
+        self
+    }
+
+    pub fn with_mtry(mut self, mtry: Option<u16>) -> Self {
+        self.mtry = mtry;
+        self
+    }
+
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+}
+
+#[derive(Clone)]
 pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
     pub y: &'a ArrayView1<'a, f64>,
@@ -14,15 +70,7 @@ pub struct DecisionTree<'a> {
     // `X[samples[idx], features[idx]]` is ordered. `samples` will be reshuffled during
     // `fit`.
     samples: Vec<Vec<usize>>,
-    // Maximum depth of the tree.
-    pub max_depth: Option<u16>,
-    pub mtry: u16,
-    // Minimum number of samples required to split a node.
-    pub min_samples_split: usize,
-    // Minimum gain required to split a node. Can be seen as a threshold.
-    pub min_gain_to_split: f64,
-    //
-    pub min_samples_leaf: usize,
+    decision_tree_parameters: DecisionTreeParameters,
 }
 
 impl<'a> DecisionTree<'a> {
@@ -31,21 +79,13 @@ impl<'a> DecisionTree<'a> {
         X: &'a ArrayView2<'a, f64>,
         y: &'a ArrayView1<'a, f64>,
         samples: Vec<Vec<usize>>,
-        max_depth: Option<u16>,
-        mtry: u16,
-        min_samples_split: Option<usize>,
-        min_gain_to_split: Option<f64>,
-        min_samples_leaf: Option<usize>,
+        decision_tree_parameters: DecisionTreeParameters,
     ) -> Self {
         DecisionTree {
             X,
             y,
             samples,
-            max_depth,
-            mtry,
-            min_samples_split: min_samples_split.unwrap_or(2),
-            min_gain_to_split: min_gain_to_split.unwrap_or(1e-12),
-            min_samples_leaf: min_samples_leaf.unwrap_or(1),
+            decision_tree_parameters,
         }
     }
 
@@ -54,7 +94,7 @@ impl<'a> DecisionTree<'a> {
             .axis_iter(Axis(1))
             .map(|x| argsort(&x))
             .collect::<Vec<Vec<usize>>>();
-        DecisionTree::new(X, y, samples, None, X.ncols() as u16, None, None, None)
+        DecisionTree::new(X, y, samples, DecisionTreeParameters::default())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -86,8 +126,9 @@ impl<'a> DecisionTree<'a> {
         let sum = sum.unwrap_or_else(|| self.sum(start, stop));
         let mean = sum / (stop - start) as f64;
 
-        if (self.max_depth.is_some() && current_depth >= self.max_depth.unwrap())
-            || (stop - start) <= self.min_samples_split
+        if (self.decision_tree_parameters.max_depth.is_some()
+            && current_depth >= self.decision_tree_parameters.max_depth.unwrap())
+            || (stop - start) <= self.decision_tree_parameters.min_samples_split
         {
             return vec![(oob_samples.to_vec(), mean)];
         }
@@ -103,7 +144,10 @@ impl<'a> DecisionTree<'a> {
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
             // Note that we continue splitting until at least on non-constant feature
             // was evaluated.
-            if (feature_idx as u16 >= self.mtry) && best_gain > 0. {
+            if (self.decision_tree_parameters.mtry.is_some()
+                && feature_idx as u16 >= self.decision_tree_parameters.mtry.unwrap())
+                && best_gain > 0.
+            {
                 break;
             }
 
@@ -114,7 +158,7 @@ impl<'a> DecisionTree<'a> {
             let (split, split_val, gain, left_sum) =
                 self.find_best_split(start, stop, feature, sum);
 
-            if gain < self.min_gain_to_split {
+            if gain <= 0. {
                 constant_features[feature_idx] = true;
             } else if gain > best_gain {
                 best_gain = gain;
@@ -125,7 +169,7 @@ impl<'a> DecisionTree<'a> {
             }
         }
 
-        if best_gain <= self.min_gain_to_split {
+        if best_gain <= 0. {
             return vec![(oob_samples.to_vec(), mean)];
         }
 
@@ -192,11 +236,13 @@ impl<'a> DecisionTree<'a> {
         let mut split = start;
         let mut left_sum: f64 = 0.;
 
-        for s in 1..(self.min_samples_leaf) {
+        for s in 1..(self.decision_tree_parameters.min_samples_leaf) {
             cumsum += self.y[samples[s - 1]];
         }
 
-        for s in (start + self.min_samples_leaf)..(stop - self.min_samples_leaf + 1) {
+        for s in (start + self.decision_tree_parameters.min_samples_leaf)
+            ..(stop - self.decision_tree_parameters.min_samples_leaf + 1)
+        {
             cumsum += self.y[samples[s - 1]];
 
             // Hackedy hack.

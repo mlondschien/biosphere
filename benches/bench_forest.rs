@@ -42,17 +42,7 @@ pub fn benchmark_forest(c: &mut Criterion) {
 
     let X_view = X.view();
     let y_view = y.view();
-    let forest = RandomForest::new(
-        &X_view,
-        &y_view,
-        None,
-        Some(4),
-        Some(10),
-        None,
-        None,
-        None,
-        None,
-    );
+    let forest = RandomForest::new(&X_view, &y_view, 100, Some(4), None, 2, 1, 0);
     c.bench_function("forest", |b| b.iter(|| forest.predict()));
 }
 

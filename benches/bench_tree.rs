@@ -1,7 +1,7 @@
 use biosphere::utils::{
     argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
 };
-use biosphere::DecisionTree;
+use biosphere::{DecisionTree, DecisionTreeParameters};
 
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -59,6 +59,9 @@ pub fn benchmark_tree(c: &mut Criterion) {
         let samples = sample_indices_from_weights(&weights, &indices);
         let mut oob_samples = oob_samples_from_weights(&weights);
 
+        let decision_tree_parameters = DecisionTreeParameters::default()
+            .with_max_depth(Some(*max_depth))
+            .with_mtry(Some(*mtry));
         group.bench_function(
             format!(
                 "tree_n={}, d={}, max_depth={}, mtry={}",
@@ -71,11 +74,7 @@ pub fn benchmark_tree(c: &mut Criterion) {
                         &X_view,
                         &y_view,
                         samples.clone(),
-                        Some(*max_depth),
-                        *mtry as u16,
-                        None,
-                        None,
-                        None,
+                        decision_tree_parameters.clone(),
                     );
                     tree.split(0, *n, &mut oob_samples, vec![false; *d], 0, None, &mut rng)
                 })

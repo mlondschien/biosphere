@@ -1,4 +1,4 @@
-use crate::tree::DecisionTree;
+use crate::tree::{DecisionTree, DecisionTreeParameters};
 use crate::utils::{
     argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
 };
@@ -12,10 +12,9 @@ pub struct RandomForest<'a> {
     pub y: &'a ArrayView1<'a, f64>,
     pub n_trees: u16,
     pub max_depth: Option<u16>,
-    pub mtry: u16,
-    pub min_samples_split: Option<usize>,
-    pub min_samples_leaf: Option<usize>,
-    pub min_gain_to_split: Option<f64>,
+    pub mtry: Option<u16>,
+    pub min_samples_split: usize,
+    pub min_samples_leaf: usize,
     pub seed: u64,
 }
 
@@ -24,29 +23,27 @@ impl<'a> RandomForest<'a> {
     pub fn new(
         X: &'a ArrayView2<'a, f64>,
         y: &'a ArrayView1<'a, f64>,
-        n_trees: Option<u16>,
+        n_trees: u16,
         max_depth: Option<u16>,
         mtry: Option<u16>,
-        min_samples_split: Option<usize>,
-        min_samples_leaf: Option<usize>,
-        min_gain_to_split: Option<f64>,
-        seed: Option<u64>,
+        min_samples_split: usize,
+        min_samples_leaf: usize,
+        seed: u64,
     ) -> Self {
         RandomForest {
             X,
             y,
-            n_trees: n_trees.unwrap_or(100),
+            n_trees,
             max_depth,
-            mtry: mtry.unwrap_or((X.ncols() as f64).sqrt().floor() as u16),
+            mtry,
             min_samples_split,
             min_samples_leaf,
-            min_gain_to_split,
-            seed: seed.unwrap_or(0),
+            seed,
         }
     }
 
     pub fn default(X: &'a ArrayView2<'a, f64>, y: &'a ArrayView1<'a, f64>) -> Self {
-        RandomForest::new(X, y, None, None, None, None, None, None, None)
+        RandomForest::new(X, y, 100, None, None, 2, 1, 0)
     }
 
     pub fn predict(&self) -> Array1<f64> {
@@ -71,7 +68,6 @@ impl<'a> RandomForest<'a> {
                 self.mtry,
                 self.max_depth,
                 self.min_samples_split,
-                self.min_gain_to_split,
                 self.min_samples_leaf,
                 seed,
             );
@@ -96,11 +92,10 @@ fn predict_with_tree<'b>(
     y: &'b ArrayView1<'b, f64>,
     weights: Vec<usize>,
     indices: &[Vec<usize>],
-    mtry: u16,
+    mtry: Option<u16>,
     max_depth: Option<u16>,
-    min_samples_split: Option<usize>,
-    min_gain_to_split: Option<f64>,
-    min_samples_leaf: Option<usize>,
+    min_samples_split: usize,
+    min_samples_leaf: usize,
     seed: u64,
 ) -> Vec<(Vec<usize>, f64)> {
     let samples = sample_indices_from_weights(&weights, indices);
@@ -110,11 +105,7 @@ fn predict_with_tree<'b>(
         X,
         y,
         samples,
-        max_depth,
-        mtry,
-        min_samples_split,
-        min_gain_to_split,
-        min_samples_leaf,
+        DecisionTreeParameters::new(max_depth, mtry, min_samples_split, min_samples_leaf),
     );
 
     tree.split(
@@ -140,7 +131,7 @@ mod tests {
         let X = data.slice(s![0..100, 0..4]);
         let y = data.slice(s![0..100, 4]);
 
-        let forest = RandomForest::new(&X, &y, None, Some(8), None, None, None, None, None);
+        let forest = RandomForest::new(&X, &y, 100, Some(8), None, 2, 1, 0);
 
         let predictions = forest.predict();
         let mse = (&predictions - &y).mapv(|x| x * x).sum();
