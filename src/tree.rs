@@ -238,12 +238,12 @@ impl<'a> DecisionTree<'a> {
         let mut left_sum: f64 = 0.;
 
         for &sample in
-            samples[start..(start + self.decision_tree_parameters.min_samples_leaf)].iter()
+            samples[start..(start + self.decision_tree_parameters.min_samples_leaf - 1)].iter()
         {
             cumsum += self.y[sample];
         }
 
-        for s in (start + self.decision_tree_parameters.min_samples_leaf + 1)
+        for s in (start + self.decision_tree_parameters.min_samples_leaf)
             ..(stop - self.decision_tree_parameters.min_samples_leaf + 1)
         {
             cumsum += self.y[samples[s - 1]];
