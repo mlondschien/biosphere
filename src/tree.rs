@@ -3,6 +3,7 @@ use ndarray::{ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;
 use rand::Rng;
 
+#[derive(Clone)]
 pub struct DecisionTree<'a> {
     pub X: &'a ArrayView2<'a, f64>,
     pub y: &'a ArrayView1<'a, f64>,
@@ -163,7 +164,7 @@ impl<'a> DecisionTree<'a> {
     }
 
     // Calculate mean sum of y[samples[0][start..stop]].
-    fn sum(&self, start: usize, stop: usize) -> f64 {
+    pub fn sum(&self, start: usize, stop: usize) -> f64 {
         let mut sum = 0.;
         for idx in self.samples[0][start..stop].iter() {
             sum += self.y[*idx];
@@ -246,7 +247,7 @@ impl<'a> DecisionTree<'a> {
     /// point to observations that belong to the right node,
     /// while preserving that `self.X[start..split, samples[features][start..split]` and
     /// `self.X[split..stop, samples[features][split..stop]]` are sorted.
-    fn split_samples(
+    pub fn split_samples(
         &mut self,
         start: usize,
         split: usize,
