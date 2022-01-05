@@ -11,5 +11,4 @@ def test_predict_oob():
     y = data[:, 4]
     result = predict_oob(X, y, 100, None, 2, 1)
     mse = np.mean((result - y) ** 2)
-    breakpoint()
     assert mse < 0.05
