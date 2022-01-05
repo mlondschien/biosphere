@@ -82,24 +82,6 @@ pub fn benchmark_tree(c: &mut Criterion) {
         );
     }
     group.finish();
-
-    // let group = c.benchmark_group("tree_methods");
-
-    // let n = 100000;
-    // let d = 2;
-
-    // let (X, y) = data(n, d, &mut rng);
-    // let X_view = X.view();
-    // let y_view = y.view();
-
-    // // let weights = sample_weights(n, &mut rng);
-    // // let indices: Vec<Vec<usize>> = (0..d).map(|col| argsort(&X.column(col))).collect();
-    // // let samples = sample_indices_from_weights(&weights, &indices);
-
-    // let mut tree = DecisionTree::default(
-    //     &X_view,
-    //     &y_view,
-    // );
 }
 
 criterion_group!(bench_tree, benchmark_tree);
