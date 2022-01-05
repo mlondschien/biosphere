@@ -7,15 +7,80 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 
+pub struct RandomForestParameters {
+    decision_tree_parameters: DecisionTreeParameters,
+    n_trees: u16,
+    seed: u64,
+}
+
+impl RandomForestParameters {
+    pub fn new(
+        n_trees: u16,
+        seed: u64,
+        max_depth: Option<u16>,
+        mtry: Option<u16>,
+        min_samples_leaf: usize,
+        min_samples_split: usize,
+    ) -> Self {
+        RandomForestParameters {
+            decision_tree_parameters: DecisionTreeParameters::new(
+                max_depth,
+                mtry,
+                min_samples_split,
+                min_samples_leaf,
+            ),
+            n_trees,
+            seed,
+        }
+    }
+
+    pub fn default() -> Self {
+        RandomForestParameters {
+            decision_tree_parameters: DecisionTreeParameters::default(),
+            n_trees: 100,
+            seed: 0,
+        }
+    }
+
+    pub fn with_n_trees(mut self, n_trees: u16) -> Self {
+        self.n_trees = n_trees;
+        self
+    }
+
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+
+    pub fn with_max_depth(mut self, max_depth: Option<u16>) -> Self {
+        self.decision_tree_parameters = self.decision_tree_parameters.with_max_depth(max_depth);
+        self
+    }
+
+    pub fn with_mtry(mut self, mtry: Option<u16>) -> Self {
+        self.decision_tree_parameters = self.decision_tree_parameters.with_mtry(mtry);
+        self
+    }
+
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.decision_tree_parameters = self
+            .decision_tree_parameters
+            .with_min_samples_leaf(min_samples_leaf);
+        self
+    }
+
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.decision_tree_parameters = self
+            .decision_tree_parameters
+            .with_min_samples_split(min_samples_split);
+        self
+    }
+}
+
 pub struct RandomForest<'a> {
-    pub X: &'a ArrayView2<'a, f64>,
-    pub y: &'a ArrayView1<'a, f64>,
-    pub n_trees: u16,
-    pub max_depth: Option<u16>,
-    pub mtry: Option<u16>,
-    pub min_samples_split: usize,
-    pub min_samples_leaf: usize,
-    pub seed: u64,
+    X: &'a ArrayView2<'a, f64>,
+    y: &'a ArrayView1<'a, f64>,
+    random_forest_parameters: RandomForestParameters,
 }
 
 impl<'a> RandomForest<'a> {
@@ -23,31 +88,21 @@ impl<'a> RandomForest<'a> {
     pub fn new(
         X: &'a ArrayView2<'a, f64>,
         y: &'a ArrayView1<'a, f64>,
-        n_trees: u16,
-        max_depth: Option<u16>,
-        mtry: Option<u16>,
-        min_samples_split: usize,
-        min_samples_leaf: usize,
-        seed: u64,
+        random_forest_parameters: RandomForestParameters,
     ) -> Self {
         RandomForest {
             X,
             y,
-            n_trees,
-            max_depth,
-            mtry,
-            min_samples_split,
-            min_samples_leaf,
-            seed,
+            random_forest_parameters,
         }
     }
 
     pub fn default(X: &'a ArrayView2<'a, f64>, y: &'a ArrayView1<'a, f64>) -> Self {
-        RandomForest::new(X, y, 100, None, None, 2, 1, 0)
+        RandomForest::new(X, y, RandomForestParameters::default())
     }
 
     pub fn predict(&self) -> Array1<f64> {
-        let mut rng = StdRng::seed_from_u64(self.seed);
+        let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
 
         let n = self.X.nrows();
         let mut predictions = Array1::<f64>::zeros(self.y.len());
@@ -57,7 +112,7 @@ impl<'a> RandomForest<'a> {
             .map(|col| argsort(&self.X.column(col)))
             .collect();
 
-        for _ in 0..self.n_trees {
+        for _ in 0..self.random_forest_parameters.n_trees {
             let seed: u64 = rng.gen();
             let weights = sample_weights(n, &mut rng);
             let result = predict_with_tree(
@@ -65,10 +120,9 @@ impl<'a> RandomForest<'a> {
                 self.y,
                 weights,
                 &indices,
-                self.mtry,
-                self.max_depth,
-                self.min_samples_split,
-                self.min_samples_leaf,
+                self.random_forest_parameters
+                    .decision_tree_parameters
+                    .clone(),
                 seed,
             );
             for (idxs, prediction) in result {
@@ -92,21 +146,13 @@ fn predict_with_tree<'b>(
     y: &'b ArrayView1<'b, f64>,
     weights: Vec<usize>,
     indices: &[Vec<usize>],
-    mtry: Option<u16>,
-    max_depth: Option<u16>,
-    min_samples_split: usize,
-    min_samples_leaf: usize,
+    decision_tree_parameters: DecisionTreeParameters,
     seed: u64,
 ) -> Vec<(Vec<usize>, f64)> {
     let samples = sample_indices_from_weights(&weights, indices);
     let mut oob_samples = oob_samples_from_weights(&weights);
     let mut rng = StdRng::seed_from_u64(seed);
-    let mut tree = DecisionTree::new(
-        X,
-        y,
-        samples,
-        DecisionTreeParameters::new(max_depth, mtry, min_samples_split, min_samples_leaf),
-    );
+    let mut tree = DecisionTree::new(X, y, samples, decision_tree_parameters);
 
     tree.split(
         0,
@@ -131,7 +177,8 @@ mod tests {
         let X = data.slice(s![0..100, 0..4]);
         let y = data.slice(s![0..100, 4]);
 
-        let forest = RandomForest::new(&X, &y, 100, Some(8), None, 2, 1, 0);
+        let random_forest_parameters = RandomForestParameters::default();
+        let forest = RandomForest::new(&X, &y, random_forest_parameters);
 
         let predictions = forest.predict();
         let mse = (&predictions - &y).mapv(|x| x * x).sum();
