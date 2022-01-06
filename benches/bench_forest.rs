@@ -1,4 +1,4 @@
-use biosphere::RandomForest;
+use biosphere::{RandomForest, RandomForestParameters};
 
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -42,17 +42,9 @@ pub fn benchmark_forest(c: &mut Criterion) {
 
     let X_view = X.view();
     let y_view = y.view();
-    let forest = RandomForest::new(
-        &X_view,
-        &y_view,
-        None,
-        Some(4),
-        Some(10),
-        None,
-        None,
-        None,
-        None,
-    );
+    let random_forest_parameters = RandomForestParameters::default().with_max_depth(Some(4));
+
+    let forest = RandomForest::new(&X_view, &y_view, random_forest_parameters);
     c.bench_function("forest", |b| b.iter(|| forest.predict()));
 }
 
