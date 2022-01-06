@@ -6,11 +6,11 @@ use rand::Rng;
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 
 pub struct DecisionTreeNode {
-    left_child: Option<Box<DecisionTreeNode>>,
-    right_child: Option<Box<DecisionTreeNode>>,
-    feature_index: Option<usize>,
-    feature_value: Option<f64>,
-    label: Option<f64>,
+    pub left_child: Option<Box<DecisionTreeNode>>,
+    pub right_child: Option<Box<DecisionTreeNode>>,
+    pub feature_index: Option<usize>,
+    pub feature_value: Option<f64>,
+    pub label: Option<f64>,
 }
 
 impl DecisionTreeNode {
@@ -28,7 +28,7 @@ impl DecisionTreeNode {
         self.label = Some(label);
     }
 
-    fn split(
+    pub fn split(
         self,
         X: &ArrayView2<f64>,
         y: &ArrayView1<f64>,
@@ -109,6 +109,7 @@ impl DecisionTreeNode {
             current_depth + 1,
             parameters,
         );
+        self.left_child = Some(Box::new(left));
 
         let mut right = DecisionTreeNode::new();
         right.split(
@@ -121,6 +122,10 @@ impl DecisionTreeNode {
             current_depth + 1,
             parameters,
         );
+        self.right_child = Some(Box::new(right));
+
+        self.feature_index = Some(best_feature);
+        self.feature_value = Some(best_split_val);
     }
 
     /// Find the best split in `self.X[samples, feature]`.
