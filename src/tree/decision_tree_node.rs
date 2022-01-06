@@ -28,12 +28,13 @@ impl DecisionTreeNode {
         self.label = Some(label);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn split(
-        self,
+        &mut self,
         X: &ArrayView2<f64>,
         y: &ArrayView1<f64>,
-        samples: Vec<&[usize]>,
-        constant_features: Vec<bool>,
+        samples: Vec<&mut [usize]>,
+        mut constant_features: Vec<bool>,
         sum: f64,
         rng: &mut impl Rng,
         current_depth: usize,
@@ -72,7 +73,7 @@ impl DecisionTreeNode {
             }
 
             let (split, split_val, gain, left_sum) =
-                self.find_best_split(X, y, feature, &samples[feature], sum);
+                self.find_best_split(X, y, feature, samples[feature], sum);
 
             if gain <= MIN_GAIN_TO_SPLIT {
                 constant_features[feature_idx] = true;
@@ -103,7 +104,7 @@ impl DecisionTreeNode {
             X,
             y,
             left_samples,
-            constant_features,
+            constant_features.clone(),
             left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -204,15 +205,15 @@ impl DecisionTreeNode {
     pub fn split_samples<'a>(
         &self,
         X: &ArrayView2<f64>,
-        samples: Vec<&'a [usize]>,
+        samples: Vec<&'a mut [usize]>,
         split: usize,
         constant_features: &[bool],
         best_feature: usize,
         best_split_val: f64,
-    ) -> (Vec<&'a [usize]>, Vec<&'a [usize]>) {
+    ) -> (Vec<&'a mut [usize]>, Vec<&'a mut [usize]>) {
         let n = samples[best_feature].len();
-        let new_samples_left = Vec::<&[usize]>::with_capacity(samples.len());
-        let new_samples_right = Vec::<&[usize]>::with_capacity(samples.len());
+        let mut new_samples_left = Vec::<&mut [usize]>::with_capacity(samples.len());
+        let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
 
         // Either store left or right samples in temporary vector, depending on which
         // is smaller. The others are done in-place.
@@ -220,17 +221,17 @@ impl DecisionTreeNode {
         let mut right_temp = Vec::<usize>::with_capacity(n - split);
         let mut current_left: usize;
 
-        for (feature, &is_constant) in constant_features.iter().enumerate() {
+        for (feature, sample_) in samples.into_iter().enumerate() {
             if feature == best_feature {
-                let (left, right) = samples[feature].split_at(split);
+                let (left, right) = sample_.split_at_mut(split);
                 new_samples_left.push(left);
                 new_samples_right.push(right);
                 continue;
             }
 
-            if is_constant {
-                new_samples_left.push(&[]);
-                new_samples_right.push(&[]);
+            if constant_features[feature] {
+                new_samples_left.push(&mut []);
+                new_samples_right.push(&mut []);
                 continue;
             }
 
@@ -243,16 +244,16 @@ impl DecisionTreeNode {
             current_left = 0;
 
             for idx in 0..n {
-                if X[[samples[feature][idx], best_feature]] > best_split_val {
-                    right_temp.push(samples[feature][idx]);
+                if X[[sample_[idx], best_feature]] > best_split_val {
+                    right_temp.push(sample_[idx]);
                 } else {
-                    samples[feature][current_left] = samples[feature][idx];
+                    sample_[current_left] = sample_[idx];
                     current_left += 1;
                 }
             }
 
-            samples[feature][split..].copy_from_slice(&right_temp);
-            let (left, right) = samples[feature].split_at_mut(split);
+            sample_[split..].copy_from_slice(&right_temp);
+            let (left, right) = sample_.split_at_mut(split);
             new_samples_left.push(left);
             new_samples_right.push(right);
             right_temp.clear()

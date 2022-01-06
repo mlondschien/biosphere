@@ -1,12 +1,10 @@
 use crate::tree::decision_tree_node::DecisionTreeNode;
 use crate::tree::DecisionTreeParameters;
-use crate::utils::argsort;
-use ndarray::{Array1, ArrayView1, ArrayView2, Axis};
+use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 
-static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
+// static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 
 pub struct DecisionTree {
     decision_tree_parameters: DecisionTreeParameters,
@@ -25,27 +23,27 @@ impl<'a> DecisionTree {
         DecisionTree::new(DecisionTreeParameters::default())
     }
 
-    pub fn fit_with_samples(
-        &mut self,
-        X: &ArrayView2<f64>,
-        y: &ArrayView1<f64>,
-        samples: &[usize],
-    ) {
-        let sorted_samples = Vec::<&[usize]>::with_capacity(X.ncols());
-        for idx in 0..X.ncols() {
-            let sample_copy = samples.clone();
-            sample_copy.sort_unstable_by(|a, b| X[[*a, idx]].partial_cmp(&X[[*b, idx]]).unwrap());
-            sorted_samples.push(&sample_copy);
-        }
+    // pub fn fit_with_samples(
+    //     &mut self,
+    //     X: &ArrayView2<f64>,
+    //     y: &ArrayView1<f64>,
+    //     samples: &[usize],
+    // ) {
+    //     let mut sorted_samples = Vec::<&[usize]>::with_capacity(X.ncols());
+    //     for idx in 0..X.ncols() {
+    //         let mut sample_copy = samples.to_vec();
+    //         sample_copy.sort_unstable_by(|a, b| X[[*a, idx]].partial_cmp(&X[[*b, idx]]).unwrap());
+    //         sorted_samples.push(sample_copy);
+    //     }
 
-        self.fit_with_sorted_samples(X, y, sorted_samples);
-    }
+    //     self.fit_with_sorted_samples(X, y, sorted_samples);
+    // }
 
     pub fn fit_with_sorted_samples(
         &mut self,
         X: &ArrayView2<f64>,
         y: &ArrayView1<f64>,
-        samples: Vec<&[usize]>,
+        samples: Vec<&mut [usize]>,
     ) {
         let mut rng = StdRng::seed_from_u64(self.decision_tree_parameters.seed);
 
@@ -63,7 +61,7 @@ impl<'a> DecisionTree {
             &mut rng,
             0,
             &self.decision_tree_parameters,
-        )
+        );
     }
 
     pub fn predict(&self, X: &ArrayView2<f64>) -> Array1<f64> {
@@ -75,13 +73,13 @@ impl<'a> DecisionTree {
     }
 
     pub fn predict_row(&self, X: &ArrayView1<f64>) -> f64 {
-        let node = &self.node;
+        let mut node = &self.node;
 
         while let Some(feature_idx) = node.feature_index {
             if X[feature_idx] < node.feature_value.unwrap() {
-                node = &node.left_child.as_ref().unwrap();
+                node = node.left_child.as_ref().unwrap();
             } else {
-                node = &node.right_child.as_ref().unwrap();
+                node = node.right_child.as_ref().unwrap();
             }
         }
         node.label.unwrap()

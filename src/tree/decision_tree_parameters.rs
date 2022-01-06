@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree.
     pub max_depth: Option<usize>,
