@@ -38,7 +38,7 @@ pub fn benchmark_tree_methods(c: &mut Criterion) {
     let mut group = c.benchmark_group("tree_methods");
     let d = 10;
 
-    for &n in &[1000, 10000, 100000, 1000000] {
+    for &n in &[1000, 10000, 100000] {
         let (X, y) = data(n, 10, &mut rng);
 
         let X_view = X.view();
@@ -61,19 +61,11 @@ pub fn benchmark_tree_methods(c: &mut Criterion) {
             b.iter(|| tree.sum(0, n))
         });
 
-        let split = X.column(0).iter().filter(|&x| *x <= 0.4).count();
+        let split = X.column(0).iter().filter(|&x| *x <= 0.6).count();
         group.bench_function(format!("split_samples continuous, n={}", n).as_str(), |b| {
             b.iter(|| {
                 let mut tree_clone = tree.clone();
-                tree_clone.split_samples(0, split, n, &vec![false; d], 0, 0.4);
-            })
-        });
-
-        let split = X.column(0).iter().filter(|&x| *x <= 0.5).count();
-        group.bench_function(format!("split_samples one-hot, n={}", n).as_str(), |b| {
-            b.iter(|| {
-                let mut tree_clone = tree.clone();
-                tree_clone.split_samples(0, split, n, &vec![false; d], 0, 0.5);
+                tree_clone.split_samples(0, split, n, &vec![false; d], 0, 0.6);
             })
         });
     }

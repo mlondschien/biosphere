@@ -339,8 +339,7 @@ impl<'a> DecisionTree<'a> {
                 right_temp.clear()
             }
         } else {
-            let mut left_temp: Vec<usize> = vec![0; split - start]; //Vec::<usize>::with_capacity(split - start);
-
+            let mut left_temp = Vec::<usize>::with_capacity(split - start);
             let mut samples: &mut [usize];
             let mut current_right: usize;
 
@@ -353,19 +352,19 @@ impl<'a> DecisionTree<'a> {
                 // samples[split, .., current_right) contains (sorted by X) indices belonging
                 // to the right node.
                 current_right = stop;
-                let mut idx_left_temp = split - start;
 
                 for idx in (start..stop).rev() {
                     if self.X[[samples[idx], best_feature]] > best_split_val {
                         current_right -= 1;
                         samples[current_right] = samples[idx];
                     } else {
-                        idx_left_temp -= 1;
-                        left_temp[idx_left_temp] = samples[idx];
-                        //left_temp.push(samples[idx]);
+                        left_temp.push(samples[idx]);
                     }
                 }
-                self.samples[feature][start..split].copy_from_slice(&left_temp);
+                for (idx, val) in left_temp.iter().enumerate() {
+                    self.samples[feature][split - idx - 1] = *val;
+                }
+                left_temp.clear();
             }
         }
     }
