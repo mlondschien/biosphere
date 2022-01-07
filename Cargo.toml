@@ -40,7 +40,3 @@ harness = false
 [[bench]]
 name = "bench_tree"
 harness = false
-
-[[bench]]
-name = "bench_tree_methods"
-harness = false

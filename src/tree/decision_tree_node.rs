@@ -5,6 +5,7 @@ use rand::Rng;
 
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 
+#[derive(Default)]
 pub struct DecisionTreeNode {
     pub left_child: Option<Box<DecisionTreeNode>>,
     pub right_child: Option<Box<DecisionTreeNode>>,
@@ -14,16 +15,6 @@ pub struct DecisionTreeNode {
 }
 
 impl DecisionTreeNode {
-    pub fn new() -> Self {
-        DecisionTreeNode {
-            left_child: None,
-            right_child: None,
-            feature_index: None,
-            feature_value: None,
-            label: None,
-        }
-    }
-
     fn leaf_node(&mut self, label: f64) {
         self.label = Some(label);
     }
@@ -100,7 +91,7 @@ impl DecisionTreeNode {
             best_split_val,
         );
 
-        let mut left = DecisionTreeNode::new();
+        let mut left = DecisionTreeNode::default();
         left.split(
             X,
             y,
@@ -114,7 +105,7 @@ impl DecisionTreeNode {
         );
         self.left_child = Some(Box::new(left));
 
-        let mut right = DecisionTreeNode::new();
+        let mut right = DecisionTreeNode::default();
         right.split(
             X,
             y,
@@ -269,10 +260,10 @@ impl DecisionTreeNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{is_sorted, load_iris};
+    use crate::testing::is_sorted;
     use crate::utils::sorted_samples;
     use assert_approx_eq::*;
-    use ndarray::{arr1, arr2, s, Array, Array1, Axis};
+    use ndarray::{arr1, arr2, s, Array, Axis};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
     use rand::rngs::StdRng;
@@ -304,7 +295,7 @@ mod tests {
         let y = arr1(y);
         let y_view = y.view();
 
-        let node = DecisionTreeNode::new();
+        let node = DecisionTreeNode::default();
         let samples = (start..stop).collect::<Vec<usize>>();
         let (split, split_val, gain, _) = node.find_best_split(
             &X_view,
@@ -347,7 +338,7 @@ mod tests {
 
         let all_false = vec![false; X.ncols()];
 
-        let node = DecisionTreeNode::new();
+        let node = DecisionTreeNode::default();
 
         let (left, right) = node.split_samples(
             &X_view,

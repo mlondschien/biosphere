@@ -1,7 +1,5 @@
-use biosphere::utils::{
-    argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
-};
-use biosphere::{DecisionTree, DecisionTreeParameters};
+use biosphere::tree::{DecisionTree, DecisionTreeParameters};
+use biosphere::utils::{argsort, sample_indices_from_weights, sample_weights};
 
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -57,7 +55,6 @@ pub fn benchmark_tree(c: &mut Criterion) {
         let weights = sample_weights(*n, &mut rng);
         let indices: Vec<Vec<usize>> = (0..*d).map(|col| argsort(&X.column(col))).collect();
         let samples = sample_indices_from_weights(&weights, &indices);
-        let mut oob_samples = oob_samples_from_weights(&weights);
 
         let decision_tree_parameters = DecisionTreeParameters::default()
             .with_max_depth(Some(*max_depth))
@@ -66,17 +63,14 @@ pub fn benchmark_tree(c: &mut Criterion) {
             format!(
                 "tree_n={}, d={}, max_depth={}, mtry={}",
                 n, d, max_depth, mtry
-            )
-            .as_str(),
+            ),
             |b| {
                 b.iter(|| {
-                    let mut tree = DecisionTree::new(
-                        &X_view,
-                        &y_view,
-                        samples.clone(),
-                        decision_tree_parameters.clone(),
-                    );
-                    tree.split(0, *n, &mut oob_samples, vec![false; *d], 0, None, &mut rng)
+                    let mut samples_clone = samples.clone();
+                    let s: Vec<&mut [usize]> =
+                        samples_clone.iter_mut().map(|x| x.as_mut_slice()).collect();
+                    let mut tree = DecisionTree::new(decision_tree_parameters.clone());
+                    tree.fit_with_sorted_samples(&X_view, &y_view, s)
                 })
             },
         );

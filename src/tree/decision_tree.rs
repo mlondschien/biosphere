@@ -16,7 +16,7 @@ impl<'a> DecisionTree {
     pub fn new(decision_tree_parameters: DecisionTreeParameters) -> Self {
         DecisionTree {
             decision_tree_parameters,
-            node: DecisionTreeNode::new(),
+            node: DecisionTreeNode::default(),
         }
     }
 
