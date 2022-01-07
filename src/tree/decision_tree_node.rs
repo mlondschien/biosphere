@@ -189,13 +189,15 @@ impl DecisionTreeNode {
         }
     }
 
-    /// Reorder `samples[feature][start..stop]` for each non-constant feature `feature`
-    /// s.t. indices `samples[feature][start..split]`
-    /// point to observations that belong to the left node (i.e. have
-    /// `x[best_feature] <= best_split_val`) and indices `samples[feature][split..stop]`
-    /// point to observations that belong to the right node,
-    /// while preserving that `self.X[start..split, samples[features][start..split]` and
-    /// `self.X[split..stop, samples[features][split..stop]]` are sorted.
+    /// Split samples into two, corresponding to observations left / right of the split point.
+    ///
+    /// `samples` is a vector of slices. For each feature s.t. constant_features[feature]
+    /// is false, samples[feature] are indices s.t. X[samples[feature], feature] is
+    /// sorted.
+    ///
+    /// split_samples takes each of these slices and divides them into left (for indices
+    /// s s.t. X[s, best_feature] <= best_split_val) / right (others), making sure that
+    /// X[left, feature] and X[right, feature] are still ordered.
     fn split_samples<'a>(
         &self,
         X: &ArrayView2<f64>,
@@ -209,11 +211,15 @@ impl DecisionTreeNode {
         let mut new_samples_left = Vec::<&mut [usize]>::with_capacity(samples.len());
         let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
 
-        // Either store left or right samples in temporary vector, depending on which
-        // is smaller. The others are done in-place.
-        // if split > n / 2 {
-        let mut right_temp = Vec::<usize>::with_capacity(n - split);
+        let mut first_left: &mut [usize] = &mut [];
+        let mut copy_of_first_right: Vec<usize> = Vec::with_capacity(n - split);
+        let mut initialized = false;
+        let mut index_of_first: usize = 0;
+
+        let mut new_right: &mut [usize] = &mut [];
+
         let mut current_left: usize;
+        let mut current_right: usize;
 
         for (feature, sample_) in samples.into_iter().enumerate() {
             if feature == best_feature {
@@ -229,6 +235,15 @@ impl DecisionTreeNode {
                 continue;
             }
 
+            if !initialized {
+                let result = sample_.split_at_mut(split);
+                new_right = result.1;
+                copy_of_first_right.extend_from_slice(new_right);
+                first_left = result.0;
+                index_of_first = feature;
+                initialized = true;
+                continue;
+            }
             // https://stackoverflow.com/a/10334085/10586763
             // Even digits in the example correspond to indices belonging to the right
             // node, odd digits to the left.
@@ -236,21 +251,49 @@ impl DecisionTreeNode {
             // samples[..current_left) contains (sorted by X) indices belonging
             // to the left node.
             current_left = 0;
+            current_right = 0;
 
             for idx in 0..n {
                 if X[[sample_[idx], best_feature]] > best_split_val {
-                    right_temp.push(sample_[idx]);
+                    new_right[current_right] = sample_[idx];
+                    current_right += 1;
                 } else {
                     sample_[current_left] = sample_[idx];
                     current_left += 1;
                 }
             }
 
-            sample_[split..].copy_from_slice(&right_temp);
-            let (left, right) = sample_.split_at_mut(split);
-            new_samples_left.push(left);
-            new_samples_right.push(right);
-            right_temp.clear()
+            let result = sample_.split_at_mut(split);
+            new_samples_left.push(result.0);
+            new_samples_right.push(new_right);
+            new_right = result.1;
+        }
+
+        if !first_left.is_empty() {
+            current_left = 0;
+            current_right = 0;
+
+            for idx in 0..split {
+                if X[[first_left[idx], best_feature]] > best_split_val {
+                    new_right[current_right] = first_left[idx];
+                    current_right += 1;
+                } else {
+                    first_left[current_left] = first_left[idx];
+                    current_left += 1;
+                }
+            }
+
+            for idx in 0..(n - split) {
+                if X[[copy_of_first_right[idx], best_feature]] > best_split_val {
+                    new_right[current_right] = copy_of_first_right[idx];
+                    current_right += 1;
+                } else {
+                    first_left[current_left] = copy_of_first_right[idx];
+                    current_left += 1;
+                }
+            }
+            new_samples_left.insert(index_of_first, first_left);
+            new_samples_right.insert(index_of_first, new_right);
         }
 
         (new_samples_left, new_samples_right)
@@ -311,16 +354,18 @@ mod tests {
     }
 
     #[rstest]
-    #[case(50, 0, 0.5)]
-    #[case(100, 1, 0.1)]
-    #[case(100, 1, 1.)]
+    #[case(50, 0, 0.5, 5)]
+    #[case(100, 1, 0.1, 5)]
+    #[case(100, 0, 0.1, 1)]
+    #[case(100, 0, 1., 10)]
     fn test_split_samples(
         #[case] n_samples: usize,
         #[case] best_feature: usize,
         #[case] best_split_val: f64,
+        #[case] d: usize,
     ) {
         let mut rng = StdRng::seed_from_u64(0);
-        let X = Array::random_using((100, 10), Uniform::new(0., 1.), &mut rng);
+        let X = Array::random_using((100, d), Uniform::new(0., 1.), &mut rng);
         let X_view = X.view();
 
         let mut single_samples: Vec<usize> =
@@ -348,6 +393,9 @@ mod tests {
             best_feature,
             best_split_val,
         );
+
+        assert!(left.len() == d);
+        assert!(right.len() == d);
 
         for (feature, (l, r)) in left.into_iter().zip(right).enumerate() {
             assert!(is_sorted(&X.column(feature).select(Axis(0), &l)));
