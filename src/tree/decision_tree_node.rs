@@ -124,7 +124,7 @@ impl DecisionTreeNode {
     }
 
     /// Find the best split in `self.X[samples, feature]`.
-    pub fn find_best_split(
+    fn find_best_split(
         &self,
         X: &ArrayView2<f64>,
         y: &ArrayView1<f64>,
@@ -196,7 +196,7 @@ impl DecisionTreeNode {
     /// point to observations that belong to the right node,
     /// while preserving that `self.X[start..split, samples[features][start..split]` and
     /// `self.X[split..stop, samples[features][split..stop]]` are sorted.
-    pub fn split_samples<'a>(
+    fn split_samples<'a>(
         &self,
         X: &ArrayView2<f64>,
         samples: Vec<&'a mut [usize]>,

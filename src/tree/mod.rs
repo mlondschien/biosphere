@@ -1,5 +1,5 @@
 mod decision_tree;
-pub mod decision_tree_node;
+mod decision_tree_node;
 mod decision_tree_parameters;
 
 pub use decision_tree::DecisionTree;

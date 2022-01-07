@@ -5,8 +5,6 @@ use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
-// static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
-
 pub struct DecisionTree {
     decision_tree_parameters: DecisionTreeParameters,
     node: DecisionTreeNode,
