@@ -1,5 +1,5 @@
-use biosphere::tree::{DecisionTree, DecisionTreeParameters};
 use biosphere::utils::{argsort, sample_indices_from_weights, sample_weights};
+use biosphere::{DecisionTree, DecisionTreeParameters};
 
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
