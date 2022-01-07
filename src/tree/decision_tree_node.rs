@@ -189,13 +189,15 @@ impl DecisionTreeNode {
         }
     }
 
-    /// Reorder `samples[feature][start..stop]` for each non-constant feature `feature`
-    /// s.t. indices `samples[feature][start..split]`
-    /// point to observations that belong to the left node (i.e. have
-    /// `x[best_feature] <= best_split_val`) and indices `samples[feature][split..stop]`
-    /// point to observations that belong to the right node,
-    /// while preserving that `self.X[start..split, samples[features][start..split]` and
-    /// `self.X[split..stop, samples[features][split..stop]]` are sorted.
+    /// Split samples into two, corresponding to observations left / right of the split point.
+    ///
+    /// `samples` is a vector of slices. For each feature s.t. constant_features[feature]
+    /// is false, samples[feature] are indices s.t. X[samples[feature], feature] is
+    /// sorted.
+    ///
+    /// split_samples takes each of these slices and divides them into left (for indices
+    /// s s.t. X[s, best_feature] <= best_split_val) / right (others), making sure that
+    /// X[left, feature] and X[right, feature] are still ordered.
     fn split_samples<'a>(
         &self,
         X: &ArrayView2<f64>,
