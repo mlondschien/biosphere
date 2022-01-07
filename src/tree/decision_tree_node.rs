@@ -34,6 +34,7 @@ impl DecisionTreeNode {
         X: &ArrayView2<f64>,
         y: &ArrayView1<f64>,
         samples: Vec<&mut [usize]>,
+        n_samples: usize,
         mut constant_features: Vec<bool>,
         sum: f64,
         rng: &mut impl Rng,
@@ -42,11 +43,11 @@ impl DecisionTreeNode {
     ) {
         if let Some(depth) = parameters.max_depth {
             if current_depth >= depth {
-                return self.leaf_node(sum / X.nrows() as f64);
+                return self.leaf_node(sum / n_samples as f64);
             }
         }
 
-        if samples[0].len() <= parameters.min_samples_split {
+        if n_samples <= parameters.min_samples_split {
             return self.leaf_node(sum / X.nrows() as f64);
         }
 
@@ -87,7 +88,7 @@ impl DecisionTreeNode {
         }
 
         if best_gain <= 0. {
-            return self.leaf_node(sum / X.nrows() as f64);
+            return self.leaf_node(sum / n_samples as f64);
         }
 
         let (left_samples, right_samples) = self.split_samples(
@@ -104,6 +105,7 @@ impl DecisionTreeNode {
             X,
             y,
             left_samples,
+            best_split,
             constant_features.clone(),
             left_sum_at_best_split,
             rng,
@@ -117,6 +119,7 @@ impl DecisionTreeNode {
             X,
             y,
             right_samples,
+            n_samples - best_split,
             constant_features,
             sum - left_sum_at_best_split,
             rng,
@@ -260,5 +263,117 @@ impl DecisionTreeNode {
         }
 
         (new_samples_left, new_samples_right)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::{is_sorted, load_iris};
+    use crate::utils::sorted_samples;
+    use assert_approx_eq::*;
+    use ndarray::{arr1, arr2, s, Array, Array1, Axis};
+    use ndarray_rand::rand_distr::Uniform;
+    use ndarray_rand::RandomExt;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+    use rstest::*;
+
+    #[rstest]
+    #[case(&[0., 0., 0., 1., 1., 1.], 0, 6, 0, 3, 2.5, 0.25)]
+    #[case(&[0., 0., 0., 1., 1., 1.], 1, 5, 0, 2, 2.5, 0.25)]
+    #[case(&[0., 0., 0., 0., 0., 0.], 0, 6, 0, 0, 0., 0.)]
+    #[case(&[7., 1., 1., 1., 1., 1.], 0, 6, 0, 1, 0.5, 5.)]
+    #[case(&[7., 1., 1., 1., 1., 1.], 0, 2, 0, 1, 0.5, 9.)]
+    #[case(&[1., 1., 0., 0., 2., 2.], 0, 6, 0, 4, 3.5, 0.5)]
+    #[case(&[-5., -5., -5., -5., -5., 1.], 0, 6, 1, 5, 0.5, 5.)]
+    #[case(&[-5., -5., -5., -5., -5., 1.], 0, 6, 0, 5, 4.5, 5.)]
+    #[case(&[-5., 1., 1., 1., 1., 1., 1.], 0, 6, 0, 1, 0.5, 5.)]
+    #[case(&[-5., 1., 1., 1., 1., 1., 1.], 0, 6, 1, 5, 0.5, 0.2)]
+    fn test_find_best_split(
+        #[case] y: &[f64],
+        #[case] start: usize,
+        #[case] stop: usize,
+        #[case] feature: usize,
+        #[case] expected_split: usize,
+        #[case] expected_split_val: f64,
+        #[case] expected_gain: f64,
+    ) {
+        let X = arr2(&[[0., 0.], [1., 0.], [2., 0.], [3., 0.], [4., 0.], [5., 1.]]);
+        let X_view = X.view();
+        let y = arr1(y);
+        let y_view = y.view();
+
+        let node = DecisionTreeNode::new();
+        let samples = (start..stop).collect::<Vec<usize>>();
+        let (split, split_val, gain, _) = node.find_best_split(
+            &X_view,
+            &y_view,
+            feature,
+            &samples,
+            y.slice(s![start..stop]).sum(),
+        );
+
+        assert_eq!((expected_split, expected_split_val), (split, split_val));
+
+        assert_approx_eq!(expected_gain, gain);
+    }
+
+    #[rstest]
+    #[case(50, 0, 0.5)]
+    #[case(100, 1, 0.1)]
+    #[case(100, 1, 1.)]
+    fn test_split_samples(
+        #[case] n_samples: usize,
+        #[case] best_feature: usize,
+        #[case] best_split_val: f64,
+    ) {
+        let mut rng = StdRng::seed_from_u64(0);
+        let X = Array::random_using((100, 10), Uniform::new(0., 1.), &mut rng);
+        let X_view = X.view();
+
+        let mut single_samples: Vec<usize> =
+            (0..n_samples).map(|_| rng.gen_range(0..100)).collect();
+        single_samples.sort();
+        let mut samples = sorted_samples(&X, &single_samples);
+
+        let split = X
+            .column(best_feature)
+            .select(Axis(0), &single_samples)
+            .iter()
+            .filter(|&&x| x <= best_split_val)
+            .count();
+        let samples_references = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
+
+        let all_false = vec![false; X.ncols()];
+
+        let node = DecisionTreeNode::new();
+
+        let (left, right) = node.split_samples(
+            &X_view,
+            samples_references,
+            split,
+            &all_false,
+            best_feature,
+            best_split_val,
+        );
+
+        for (feature, (l, r)) in left.into_iter().zip(right).enumerate() {
+            assert!(is_sorted(&X.column(feature).select(Axis(0), &l)));
+            assert!(is_sorted(&X.column(feature).select(Axis(0), &r)));
+
+            for idx in l.iter() {
+                assert!(X[[*idx, best_feature]] <= best_split_val);
+            }
+
+            for idx in r.iter() {
+                assert!(X[[*idx, best_feature]] > best_split_val);
+            }
+
+            let mut all_samples = [l, r].concat();
+            all_samples.sort();
+
+            assert_eq!(all_samples, single_samples);
+        }
     }
 }
