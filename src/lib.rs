@@ -7,7 +7,7 @@ pub use tree::DecisionTreeParameters;
 mod forest;
 mod quick_sort;
 mod tree;
-pub mod utils;
+pub mod utils; // This is public for benchmarking only.
 
 #[cfg(test)]
 mod testing;

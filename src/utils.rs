@@ -1,11 +1,11 @@
-use ndarray::{ArrayBase, Data, Ix1};
+use ndarray::{ArrayBase, Data, Ix1, Ix2};
 use rand::Rng;
 
 /// Compute `indices` such that `data.select(indices)` is sorted.
 ///
 /// Parameters
 /// ----------
-/// data: Array1<f64> or ArrayView<f64>
+/// data: Array1<f64> or ArrayView1<f64>
 pub fn argsort(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Vec<usize> {
     let mut indices = (0..data.len()).collect::<Vec<usize>>();
     indices.sort_unstable_by(|a, b| data[*a].partial_cmp(&data[*b]).unwrap());
@@ -46,6 +46,20 @@ pub fn oob_samples_from_weights(weights: &[usize]) -> Vec<usize> {
         }
     }
     oob_samples
+}
+
+pub fn sorted_samples(
+    X: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    samples: &[usize],
+) -> Vec<Vec<usize>> {
+    let mut samples_out: Vec<Vec<usize>> = Vec::with_capacity(X.ncols());
+
+    for idx in 0..X.ncols() {
+        let mut samples_ = samples.to_vec();
+        samples_.sort_by(|a, b| X[[*a, idx]].partial_cmp(&X[[*b, idx]]).unwrap());
+        samples_out.push(samples_);
+    }
+    samples_out
 }
 
 #[cfg(test)]
