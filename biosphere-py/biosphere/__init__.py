@@ -1,3 +1,3 @@
-from .biosphere import predict_oob
+from .biosphere import DecisionTree, RandomForest
 
-__all__ = ["predict_oob"]
+__all__ = ["DecisionTree", "RandomForest"]

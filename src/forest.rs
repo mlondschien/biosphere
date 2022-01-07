@@ -153,14 +153,9 @@ impl RandomForest {
             let weights = sample_weights(X.nrows(), &mut rng);
             let mut samples = sample_indices_from_weights(&weights, &indices);
 
-            let mut references_to_samples = Vec::<&mut [usize]>::with_capacity(samples.len());
+            let samples_as_slices = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
 
-            // TODO: This is a hack to make the borrow checker happy.
-            for sample in samples.iter_mut() {
-                references_to_samples.push(sample);
-            }
-
-            tree.fit_with_sorted_samples(X, y, references_to_samples);
+            tree.fit_with_sorted_samples(X, y, samples_as_slices);
 
             let oob_samples = oob_samples_from_weights(&weights);
             for oob_sample in oob_samples.into_iter() {
