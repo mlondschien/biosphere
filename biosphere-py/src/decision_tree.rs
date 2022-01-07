@@ -1,5 +1,5 @@
-use biosphere::tree::DecisionTree as BioDecisionTree;
-use biosphere::tree::DecisionTreeParameters;
+use biosphere::DecisionTree as BioDecisionTree;
+use biosphere::DecisionTreeParameters;
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
 use pyo3::prelude::{PyResult, Python};
 use pyo3::proc_macro::{pyclass, pymethods};
