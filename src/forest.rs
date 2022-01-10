@@ -6,11 +6,15 @@ use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::ThreadPoolBuilder;
 
+#[derive(Clone)]
 pub struct RandomForestParameters {
     decision_tree_parameters: DecisionTreeParameters,
     n_trees: usize,
     seed: u64,
+    n_jobs: Option<usize>,
 }
 
 impl RandomForestParameters {
@@ -21,6 +25,7 @@ impl RandomForestParameters {
         mtry: Option<usize>,
         min_samples_leaf: usize,
         min_samples_split: usize,
+        n_jobs: Option<usize>,
     ) -> Self {
         RandomForestParameters {
             decision_tree_parameters: DecisionTreeParameters::new(
@@ -32,6 +37,7 @@ impl RandomForestParameters {
             ),
             n_trees,
             seed,
+            n_jobs,
         }
     }
 
@@ -40,6 +46,7 @@ impl RandomForestParameters {
             decision_tree_parameters: DecisionTreeParameters::default(),
             n_trees: 100,
             seed: 0,
+            n_jobs: None,
         }
     }
 
@@ -76,6 +83,11 @@ impl RandomForestParameters {
             .with_min_samples_split(min_samples_split);
         self
     }
+
+    pub fn with_n_jobs(mut self, n_jobs: Option<usize>) -> Self {
+        self.n_jobs = n_jobs;
+        self
+    }
 }
 
 pub struct RandomForest {
@@ -106,64 +118,120 @@ impl RandomForest {
     }
 
     pub fn fit(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) {
-        let indices: Vec<Vec<usize>> = (0..X.ncols()).map(|idx| argsort(&X.column(idx))).collect();
+        let mut thread_pool_builder = ThreadPoolBuilder::new();
+
+        if let Some(n_jobs) = self.random_forest_parameters.n_jobs {
+            thread_pool_builder = thread_pool_builder.num_threads(n_jobs);
+        }
+
+        let thread_pool = thread_pool_builder.build().unwrap();
+
+        let indices: Vec<usize> = (0..X.ncols()).collect();
+        let indices: Vec<Vec<usize>> = thread_pool.install(|| {
+            indices
+                .into_par_iter()
+                .map(|idx| argsort(&X.column(idx)))
+                .collect()
+        });
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
+        let seeds: Vec<u64> = (0..self.random_forest_parameters.n_trees)
+            .into_iter()
+            .map(|_| rng.gen())
+            .collect();
 
-        for _ in 0..self.random_forest_parameters.n_trees {
-            let mut tree = DecisionTree::new(
-                self.random_forest_parameters
-                    .decision_tree_parameters
-                    .clone()
-                    .with_seed(rng.gen()),
-            );
+        self.trees = thread_pool.install(|| {
+            seeds
+                .into_par_iter()
+                .map(|seed| {
+                    let mut rng = StdRng::seed_from_u64(seed);
+                    let mut tree = DecisionTree::new(
+                        self.random_forest_parameters
+                            .decision_tree_parameters
+                            .clone()
+                            .with_seed(seed),
+                    );
 
-            let weights = sample_weights(X.nrows(), &mut rng);
-            let mut samples = sample_indices_from_weights(&weights, &indices);
+                    let weights = sample_weights(X.nrows(), &mut rng);
+                    let mut samples = sample_indices_from_weights(&weights, &indices);
 
-            let mut references_to_samples = Vec::<&mut [usize]>::with_capacity(samples.len());
+                    let mut references_to_samples =
+                        Vec::<&mut [usize]>::with_capacity(samples.len());
 
-            // TODO: This is a hack to make the borrow checker happy.
-            for sample in samples.iter_mut() {
-                references_to_samples.push(sample);
-            }
+                    // fit_with_sorted_samples expects Vec<&[usize]>. This could be done more
+                    // elegantly.
+                    for sample in samples.iter_mut() {
+                        references_to_samples.push(sample);
+                    }
 
-            tree.fit_with_sorted_samples(X, y, references_to_samples);
-
-            self.trees.push(tree);
-        }
+                    tree.fit_with_sorted_samples(X, y, references_to_samples);
+                    tree
+                })
+                .collect()
+        })
     }
 
     pub fn fit_predict_oob(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) -> Array1<f64> {
-        let indices: Vec<Vec<usize>> = (0..X.ncols()).map(|idx| argsort(&X.column(idx))).collect();
+        let mut thread_pool_builder = ThreadPoolBuilder::new();
+
+        if let Some(n_jobs) = self.random_forest_parameters.n_jobs {
+            thread_pool_builder = thread_pool_builder.num_threads(n_jobs);
+        }
+
+        let thread_pool = thread_pool_builder.build().unwrap();
+
+        let indices: Vec<usize> = (0..X.ncols()).collect();
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
+        let seeds: Vec<u64> = (0..self.random_forest_parameters.n_trees)
+            .into_iter()
+            .map(|_| rng.gen())
+            .collect();
 
-        let mut oob_predictions = Array1::<f64>::zeros(X.nrows());
-        let mut oob_n_trees = Array1::<usize>::zeros(X.nrows());
+        let tree_parameters = self
+            .random_forest_parameters
+            .decision_tree_parameters
+            .clone();
 
-        for _ in 0..self.random_forest_parameters.n_trees {
-            let mut tree = DecisionTree::new(
-                self.random_forest_parameters
-                    .decision_tree_parameters
-                    .clone()
-                    .with_seed(rng.gen()),
-            );
+        let result: Vec<(DecisionTree, Vec<usize>, Vec<f64>)> = thread_pool.scope(move |_| {
+            let indices: Vec<Vec<usize>> = indices
+                .into_par_iter()
+                .map(|idx| argsort(&X.column(idx)))
+                .collect();
 
-            let weights = sample_weights(X.nrows(), &mut rng);
-            let mut samples = sample_indices_from_weights(&weights, &indices);
+            seeds
+                .into_par_iter()
+                .map(move |seed| {
+                    let mut rng = StdRng::seed_from_u64(seed);
+                    let mut tree = DecisionTree::new(tree_parameters.clone().with_seed(rng.gen()));
 
-            let samples_as_slices = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
+                    let weights = sample_weights(X.nrows(), &mut rng);
+                    let mut samples = sample_indices_from_weights(&weights, &indices);
+                    let oob_samples = oob_samples_from_weights(&weights);
 
-            tree.fit_with_sorted_samples(X, y, samples_as_slices);
+                    let samples_as_slices = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
 
-            let oob_samples = oob_samples_from_weights(&weights);
-            for oob_sample in oob_samples.into_iter() {
-                oob_predictions[oob_sample] += tree.predict_row(&X.row(oob_sample));
-                oob_n_trees[oob_sample] += 1;
-            }
+                    tree.fit_with_sorted_samples(X, y, samples_as_slices);
 
+                    let mut oob_predictions = Vec::<f64>::with_capacity(oob_samples.len());
+                    for sample in oob_samples.iter() {
+                        oob_predictions.push(tree.predict_row(&X.row(*sample)));
+                    }
+
+                    (tree, oob_samples, oob_predictions)
+                })
+                .collect()
+        });
+
+        let mut oob_predictions: Array1<f64> = Array1::zeros(X.nrows());
+        let mut oob_n_trees: Array1<usize> = Array1::zeros(X.nrows());
+
+        for (tree, oob_samples, oob_predictions_) in result {
             self.trees.push(tree);
+            for (idx, prediction) in oob_samples.into_iter().zip(oob_predictions_.into_iter()) {
+                oob_predictions[idx] += prediction;
+                oob_n_trees[idx] += 1;
+            }
         }
 
         oob_predictions * oob_n_trees.mapv(|x| 1. / x as f64)
