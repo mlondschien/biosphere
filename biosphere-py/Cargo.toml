@@ -1,6 +1,6 @@
 [package]
 name = "biosphere_py"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 
 [lib]
@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 name = "biosphere"
 
 [dependencies]
-numpy = "0.14.1"
+numpy = "0.15"
 biosphere = { path = "../" }
-ndarray = "0.15.3"
-pyo3 = {version = "0.14.5", features = ["extension-module"]}
+ndarray = "0.15"
+pyo3 = {version = "0.15", features = ["extension-module"]}
