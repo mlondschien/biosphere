@@ -1,4 +1,4 @@
-use crate::tree::DecisionTreeParameters;
+use crate::tree::{DecisionTreeParameters, Criterion};
 use ndarray::{ArrayView1, ArrayView2};
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -65,7 +65,7 @@ impl DecisionTreeNode {
             }
 
             let (split, split_val, gain, left_sum) =
-                self.find_best_split(X, y, feature, samples[feature], sum);
+                self.find_best_split(X, y, feature, samples[feature], sum, parameters.criterion);
 
             if gain <= MIN_GAIN_TO_SPLIT {
                 constant_features[feature_idx] = true;
@@ -131,6 +131,7 @@ impl DecisionTreeNode {
         feature: usize,
         samples: &[usize],
         sum: f64,
+        criterion: Box<impl Criterion>
     ) -> (usize, f64, f64, f64) {
         // X is constant in this segment.
         if X[[*samples.last().unwrap(), feature]] - X[[*samples.first().unwrap(), feature]] < 1e-12
@@ -148,21 +149,11 @@ impl DecisionTreeNode {
         for s in 1..samples.len() {
             cumsum += y[samples[s - 1]];
 
-            // Hackedy hack.
             if X[[samples[s], feature]] - X[[samples[s - 1], feature]] < 1e-12 {
                 continue;
             }
 
-            // Inspired by https://github.com/scikit-learn/scikit-learn/blob/cb4688ad15f052d7c55b1d3f09ee65bc3d5bb24b/sklearn/tree/_criterion.pyx#L900
-            // The RSS after fitting a mean to (u, v] is L(u, v) = sum_{i=u+1}^v (y_i - mean)^2.
-            // Here mean = 1 / (v - u) * sum_{i=u+1}^v y_i.
-            // Then L(u, v) = \sum_{i=u+1}^v y_i^2 - 1 / (v - u) (sum_{i=u+1} y_i)^2.
-            // The node impurity splitting at s is
-            // L(start, s) + L(s, stop) = \sum_{i=start+1}^stop y_i^2 - 1 / (s - start) (sum_{i=start+1}^v y_i)^2 - 1 / (stop - s) (sum_{i=s+1}^stop y_i)^2.
-            // The first term is independent of s, so does not need to be calculated to find the best split.
-            // We find the maximum of the negative of the second term, which is the proxy gain.
-            proxy_gain =
-                cumsum * cumsum / s as f64 + (sum - cumsum) * (sum - cumsum) / (n - s) as f64;
+            proxy_gain = criterion.proxy_gain(cumsum, sum - cumsum, s, n-s);
 
             if proxy_gain > max_proxy_gain {
                 max_proxy_gain = proxy_gain;
@@ -177,7 +168,7 @@ impl DecisionTreeNode {
         // on (start, stop). Then
         // G(s) = - 1 / (stop - start) * (\sum_{i=start+1}^stop y_i) ^ 2 + proxy_gain(s).
         // We also normalize by (stop - start).
-        let max_gain = -(sum / n as f64).powi(2) + max_proxy_gain / n as f64;
+        let max_gain = criterion.gain(max_proxy_gain, sum, n);
 
         let split_val: f64;
 
@@ -312,6 +303,7 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rstest::*;
+    use crate::tree::criterion::MSECriterion;
 
     #[rstest]
     #[case(&[0., 0., 0., 1., 1., 1.], 0, 6, 0, 3, 2.5, 0.25)]
@@ -340,12 +332,14 @@ mod tests {
 
         let node = DecisionTreeNode::default();
         let samples = (start..stop).collect::<Vec<usize>>();
+        let criterion = MSECriterion::new();
         let (split, split_val, gain, _) = node.find_best_split(
             &X_view,
             &y_view,
             feature,
             &samples,
             y.slice(s![start..stop]).sum(),
+            Box::new(criterion),
         );
 
         assert_eq!((expected_split, expected_split_val), (split, split_val));

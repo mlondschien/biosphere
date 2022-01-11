@@ -1,3 +1,5 @@
+use crate::tree::Criterion;
+use crate::tree::criterion::{MSECriterion};
 #[derive(Clone)]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree.
@@ -9,6 +11,7 @@ pub struct DecisionTreeParameters {
     pub min_samples_leaf: usize,
     //
     pub seed: u64,
+    pub criterion: Box<dyn Criterion>,
 }
 
 impl DecisionTreeParameters {
@@ -19,6 +22,7 @@ impl DecisionTreeParameters {
             min_samples_split: 2,
             min_samples_leaf: 1,
             seed: 0,
+            criterion: Box::new(MSECriterion::new()),
         }
     }
 
@@ -28,6 +32,7 @@ impl DecisionTreeParameters {
         min_samples_split: usize,
         min_samples_leaf: usize,
         seed: u64,
+        criterion: Box<dyn Criterion>,
     ) -> Self {
         DecisionTreeParameters {
             max_depth,
@@ -35,6 +40,7 @@ impl DecisionTreeParameters {
             min_samples_split,
             min_samples_leaf,
             seed,
+            criterion
         }
     }
 
@@ -60,6 +66,11 @@ impl DecisionTreeParameters {
 
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
+        self
+    }
+
+    pub fn with_criterion(mut self, criterion: Box<dyn Criterion>) -> Self {
+        self.criterion = criterion;
         self
     }
 }
