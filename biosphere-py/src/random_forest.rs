@@ -19,7 +19,8 @@ impl RandomForest {
         mtry = "None",
         min_samples_split = 2,
         min_samples_leaf = 1,
-        seed = 0
+        seed = 0,
+        n_jobs = "None"
     )]
     pub fn __init__(
         n_trees: usize,
@@ -28,6 +29,7 @@ impl RandomForest {
         min_samples_split: usize,
         min_samples_leaf: usize,
         seed: u64,
+        n_jobs: Option<usize>,
     ) -> PyResult<Self> {
         let random_forest_parameters = RandomForestParameters::new(
             n_trees,
@@ -36,6 +38,7 @@ impl RandomForest {
             mtry,
             min_samples_split,
             min_samples_leaf,
+            n_jobs,
         );
         Ok(RandomForest {
             forest: BioForest::new(random_forest_parameters),
