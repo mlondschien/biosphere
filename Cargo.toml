@@ -5,7 +5,7 @@ authors = ["Malte Londschien <malte@londschien.ch>"]
 repository = "https://github.com/mlondschien/biosphere/"
 readme = "README.md"
 license = "BSD-3-Clause"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yml"]
 
@@ -13,9 +13,9 @@ exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yml"]
 name = "biosphere"
 
 [dependencies]
-ndarray = "0.15.3"
-rand = "0.8.4"
-rayon = "1.5.1"
+ndarray = "0.15"
+rand = "0.8"
+rayon = "1.5"
 
 [profile.bench]
 incremental = true
@@ -23,12 +23,12 @@ debug = true
 lto = "fat"
 
 [dev-dependencies]
-rstest = "0.11.0"
-ndarray-rand = "0.14.0"
+rstest = "0.12"
+ndarray-rand = "0.14"
 csv = "^1"
 ndarray-csv = "^0.5"
-criterion = "0.3.0"
-assert_approx_eq = "1.1.0"
+criterion = "0.3"
+assert_approx_eq = "1.1"
 
 [[bench]]
 name = "bench_utils"
