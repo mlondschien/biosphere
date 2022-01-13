@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - (2022-01-13)
+## 0.2.1 - (2022-01-13)
 
 - **Bug fixes:**
     - `DecisionTreeNode` no longer returns wrong leaf value if splitting is stopped
