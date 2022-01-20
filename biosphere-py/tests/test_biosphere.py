@@ -27,6 +27,7 @@ def test_tree():
     X = data[:, 0:4]
     y = data[:, 4]
 
+    breakpoint()
     random_forest = RandomForest()
     oob_predictions = random_forest.fit_predict_oob(X, y)
     predictions = random_forest.predict(X)

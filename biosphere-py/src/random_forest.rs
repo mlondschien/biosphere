@@ -1,5 +1,5 @@
 use biosphere::RandomForest as BioForest;
-use biosphere::RandomForestParameters;
+use biosphere::{RandomForestParameters, Mtry};
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
 use pyo3::prelude::{PyResult, Python};
 use pyo3::proc_macro::{pyclass, pymethods};
@@ -25,7 +25,7 @@ impl RandomForest {
     pub fn __init__(
         n_trees: usize,
         max_depth: Option<usize>,
-        mtry: Option<usize>,
+        mtry: Mtry,
         min_samples_split: usize,
         min_samples_leaf: usize,
         seed: u64,

@@ -1,5 +1,5 @@
 use biosphere::DecisionTree as BioDecisionTree;
-use biosphere::DecisionTreeParameters;
+use biosphere::{DecisionTreeParameters, Mtry};
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
 use pyo3::prelude::{PyResult, Python};
 use pyo3::proc_macro::{pyclass, pymethods};
@@ -15,14 +15,14 @@ impl DecisionTree {
     #[new]
     #[args(
         max_depth = 4,
-        mtry = "None",
+        mtry = "Mtry::None",
         min_samples_split = 2,
         min_samples_leaf = 1,
         seed = 1
     )]
     pub fn __init__(
         max_depth: Option<usize>,
-        mtry: Option<usize>,
+        mtry: Mtry,
         min_samples_split: usize,
         min_samples_leaf: usize,
         seed: u64,

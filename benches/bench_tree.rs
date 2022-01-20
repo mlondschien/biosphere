@@ -1,5 +1,5 @@
 use biosphere::utils::{argsort, sample_indices_from_weights, sample_weights};
-use biosphere::{DecisionTree, DecisionTreeParameters};
+use biosphere::{DecisionTree, DecisionTreeParameters, Mtry};
 
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -58,7 +58,7 @@ pub fn benchmark_tree(c: &mut Criterion) {
 
         let decision_tree_parameters = DecisionTreeParameters::default()
             .with_max_depth(Some(*max_depth))
-            .with_mtry(Some(*mtry));
+            .with_mtry(Mtry::Value(*mtry));
         group.bench_function(
             format!(
                 "tree_n={}, d={}, max_depth={}, mtry={}",

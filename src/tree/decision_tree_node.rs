@@ -54,10 +54,8 @@ impl DecisionTreeNode {
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
             // Note that we continue splitting until at least on non-constant feature
             // was evaluated.
-            if let Some(mtry) = parameters.mtry {
-                if feature_idx >= mtry && best_gain > 0. {
-                    break;
-                }
+            if feature_idx > parameters.mtry.mtry(X.ncols()) && best_gain > 0. {
+                break;
             }
 
             if constant_features[feature] {

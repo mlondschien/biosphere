@@ -1,4 +1,4 @@
-use crate::tree::{DecisionTree, DecisionTreeParameters};
+use crate::tree::{DecisionTree, DecisionTreeParameters, Mtry};
 use crate::utils::{
     argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
 };
@@ -22,7 +22,7 @@ impl RandomForestParameters {
         n_trees: usize,
         seed: u64,
         max_depth: Option<usize>,
-        mtry: Option<usize>,
+        mtry: Mtry,
         min_samples_leaf: usize,
         min_samples_split: usize,
         n_jobs: Option<usize>,
@@ -65,7 +65,7 @@ impl RandomForestParameters {
         self
     }
 
-    pub fn with_mtry(mut self, mtry: Option<usize>) -> Self {
+    pub fn with_mtry(mut self, mtry: Mtry) -> Self {
         self.decision_tree_parameters = self.decision_tree_parameters.with_mtry(mtry);
         self
     }
