@@ -212,7 +212,7 @@ impl DecisionTreeNode {
         let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
 
         let mut first_left: &mut [usize] = &mut [];
-        let mut copy_of_first_right: Vec<usize> = Vec::with_capacity(n - split);
+        let mut copy_of_first_right = vec![0; n - split];
         let mut initialized = false;
         let mut index_of_first: usize = 0;
 
@@ -222,6 +222,7 @@ impl DecisionTreeNode {
         let mut current_right: usize;
 
         for (feature, sample_) in samples.into_iter().enumerate() {
+            // The samples for feature == best_feature are already sorted by best_feature.
             if feature == best_feature {
                 let (left, right) = sample_.split_at_mut(split);
                 new_samples_left.push(left);
@@ -238,7 +239,7 @@ impl DecisionTreeNode {
             if !initialized {
                 let result = sample_.split_at_mut(split);
                 new_right = result.1;
-                copy_of_first_right.extend_from_slice(new_right);
+                copy_of_first_right.copy_from_slice(new_right);
                 first_left = result.0;
                 index_of_first = feature;
                 initialized = true;
