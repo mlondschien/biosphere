@@ -145,19 +145,18 @@ impl DecisionTreeNode {
         sum: f64,
     ) -> (usize, f64, f64, f64) {
         let n = samples.len();
-        let mut cumsum = 0.;
+        let mut cumsum = y[samples[0]];
         let mut max_proxy_gain = 0.;
         let mut proxy_gain: f64;
         let mut split = 0;
         let mut left_sum: f64 = 0.;
 
-        for s in 1..samples.len() {
-            debug_assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
-
-            cumsum += y[samples[s - 1]];
+        for (s, sample) in samples.iter().enumerate().skip(1) {
+            debug_assert!(X[[s, feature]] >= X[[samples[s - 1], feature]]);
 
             // Hackedy hack.
-            if X[[samples[s], feature]] - X[[samples[s - 1], feature]] < 1e-12 {
+            if X[[*sample, feature]] - X[[samples[s - 1], feature]] < 1e-12 {
+                cumsum += y[*sample];
                 continue;
             }
 
@@ -177,6 +176,8 @@ impl DecisionTreeNode {
                 split = s;
                 left_sum = cumsum;
             }
+
+            cumsum += y[*sample];
         }
 
         debug_assert!((cumsum + y[*samples.last().unwrap()] - sum).abs() < 1e-12);
