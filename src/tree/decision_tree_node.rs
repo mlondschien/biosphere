@@ -153,7 +153,7 @@ impl DecisionTreeNode {
         let mut left_sum: f64 = 0.;
 
         for (s, sample) in samples.iter().enumerate().skip(1) {
-            debug_assert!(X[[s, feature]] >= X[[samples[s - 1], feature]]);
+            debug_assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
 
             // Hackedy hack.
             if X[[*sample, feature]] < X[[samples[s - 1], feature]] + FEATURE_THRESHOLD {
@@ -181,7 +181,7 @@ impl DecisionTreeNode {
             cumsum += y[*sample];
         }
 
-        debug_assert!((cumsum + y[*samples.last().unwrap()] - sum).abs() < 1e-12);
+        debug_assert!((cumsum - sum).abs() < FEATURE_THRESHOLD);
 
         // We are interested in the gain when splitting at s, the improvement in impurity
         // through splitting: G(s) = L(start, stop) - L(start, s) - L(s, stop).
