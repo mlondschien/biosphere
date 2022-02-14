@@ -5,7 +5,8 @@ use rand::Rng;
 use std::debug_assert;
 
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
-static FEATURE_THRESHOLD: f64 = 1e-14;
+// Used by scikit-learn, to `Mitigate precision differences between 32 bit and 64 bit`.
+static FEATURE_THRESHOLD: f64 = 1e-7;
 
 #[derive(Default)]
 pub struct DecisionTreeNode {
@@ -155,7 +156,7 @@ impl DecisionTreeNode {
             debug_assert!(X[[s, feature]] >= X[[samples[s - 1], feature]]);
 
             // Hackedy hack.
-            if X[[*sample, feature]] - X[[samples[s - 1], feature]] < 1e-12 {
+            if X[[*sample, feature]] < X[[samples[s - 1], feature]] + FEATURE_THRESHOLD {
                 cumsum += y[*sample];
                 continue;
             }
