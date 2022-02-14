@@ -48,6 +48,7 @@ impl<'a> DecisionTree {
         }
 
         let n_samples = samples[0].len();
+        let mut all_false = vec![false; X.nrows()];
 
         self.node.split(
             X,
@@ -55,6 +56,7 @@ impl<'a> DecisionTree {
             samples,
             n_samples,
             vec![false; X.ncols()],
+            &mut all_false,
             sum,
             &mut rng,
             0,

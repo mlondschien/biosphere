@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 - (2022-02-14)
+
+- **Other changes:**
+    - Speedup of `DecisisionTreeNode.split_samples` resulting in overall 6 - 20% faster
+      tree fitting.
+
 ## 0.2.1 - (2022-01-13)
 
 - **Bug fixes:**
