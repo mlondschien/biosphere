@@ -1,12 +1,12 @@
 # From https://github.com/xhochy/nyc-taxi-fare-prediction-deployment-example
-import pandas as pd
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from sklearn.pipeline import Pipeline
 from sklearn.compose import make_column_transformer
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder
 
 DATA_PATH = Path(__file__).resolve().parent / "data"
 NYC_TAXI_DATASET_PATH = DATA_PATH / "nyc_taxi_data.parquet"
@@ -38,12 +38,10 @@ def load_nyc_taxi_burrows():
     if NYC_TAXI_BURROWS_PATH.exists():
         return pd.read_parquet(NYC_TAXI_BURROWS_PATH)
     else:
-        df = pd.read_csv(
-            NYC_TAXI_BURROWS_URL,
-            index_col=False,
-        )
+        df = pd.read_csv(NYC_TAXI_BURROWS_URL, index_col=False,)
         df.to_parquet(NYC_TAXI_BURROWS_PATH)
         return df
+
 
 def split_pickup_datetime(df):
     return pd.DataFrame(
@@ -80,10 +78,7 @@ burrow_categories = [
 def feature_enginering():
     return make_column_transformer(
         (FunctionTransformer(), ["passenger_count", "trip_distance"]),
-        (
-            FunctionTransformer(func=split_pickup_datetime),
-            ["tpep_pickup_datetime"],
-        ),
+        (FunctionTransformer(func=split_pickup_datetime), ["tpep_pickup_datetime"],),
         (
             Pipeline(
                 steps=[
@@ -103,7 +98,12 @@ def load_nyc_taxi(train_size, test_size):
 
     fare_amount_mean = df["fare_amount"].mean()
     fare_amount_std = df["fare_amount"].std()
-    df = df[lambda x: x["fare_amount"].between(fare_amount_mean - 4 * fare_amount_std, fare_amount_mean + 4 * fare_amount_std)]
+    df = df[
+        lambda x: x["fare_amount"].between(
+            fare_amount_mean - 4 * fare_amount_std,
+            fare_amount_mean + 4 * fare_amount_std,
+        )
+    ]
 
     y = df.pop("fare_amount").to_numpy()
     X = feature_enginering().fit_transform(df)

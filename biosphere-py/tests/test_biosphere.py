@@ -1,6 +1,8 @@
-import numpy as np
 from pathlib import Path
-from biosphere import RandomForest, DecisionTree
+
+import numpy as np
+
+from biosphere import RandomForest
 
 _IRIS_FILE = "iris.csv"
 _IRIS_PATH = Path(__file__).resolve().parents[2] / "testdata" / _IRIS_FILE
