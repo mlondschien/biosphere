@@ -7,7 +7,7 @@
     "show_commit_url": "https://github.com/mlondschien/biosphere/commit/",
     "pythons": ["3.9"],
     "conda_channels": ["conda-forge"],
-    "build_command": "maturin build --release -m biosphere-py/Cargo.toml",
+    "build_command": "",
     "install_command": "python -mpip install --no-deps ./biosphere-py",
     "conda_environment_file": "benchmarks/environment.yml",
     "benchmark_dir": "benchmarks",
