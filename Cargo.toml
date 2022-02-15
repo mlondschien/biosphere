@@ -16,6 +16,7 @@ name = "biosphere"
 ndarray = "0.15"
 rand = "0.8"
 rayon = "1.5"
+introsort = "0.6"
 
 [profile.bench]
 incremental = true
