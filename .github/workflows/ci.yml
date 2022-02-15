@@ -117,6 +117,7 @@ jobs:
       
       - name: Run benchmarks
         run: |
+          cd biosphere-py
           asv machine --machine github --yes
           asv continuous origin/main HEAD -e --factor 1.05 --machine github
 
