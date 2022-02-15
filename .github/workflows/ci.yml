@@ -83,8 +83,8 @@ jobs:
           command: clippy
           args: --all -- -D warnings
 
-  bench:
-    name: Benchmarks
+  cargo-bench:
+    name: Cargo Benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -99,6 +99,27 @@ jobs:
           git checkout ${{ github.head_ref }}
           cargo bench
         shell: bash -lxeu {0}
+
+  asv-bench:
+    name: ASV Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install asv
+        run: |
+          pip install --upgrade asv
+      
+      - name: Run benchmarks
+        run: |
+          asv machine --machine github --yes
+          asv continuous origin/main HEAD -e --factor 1.05 --machine github
+
   
   python-tests:
     name: Python tests (${{ matrix.os }})
