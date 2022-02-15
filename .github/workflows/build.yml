@@ -13,7 +13,7 @@ jobs:
   python-build-wheels:
     name: Python wheels (${{ matrix.os }}, ${{ matrix.vers }})
     runs-on: ${{ matrix.os }}
-    if: "(github.event_name == 'release' && github.event.action == 'published') || contains(github.events.commits[0].message, 'build')"
+    if: "(github.event_name == 'release' && github.event.action == 'published') || contains(github.events.commits[-1].message, 'build')"
 
     strategy:
       fail-fast: false
