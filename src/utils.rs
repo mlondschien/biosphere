@@ -1,3 +1,4 @@
+use crate::quick_sort::QuickArgSort;
 use ndarray::{ArrayBase, Data, Ix1, Ix2};
 use rand::Rng;
 
@@ -7,9 +8,11 @@ use rand::Rng;
 /// ----------
 /// data: Array1<f64> or ArrayView1<f64>
 pub fn argsort(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Vec<usize> {
-    let mut indices = (0..data.len()).collect::<Vec<usize>>();
-    indices.sort_unstable_by(|a, b| data[*a].partial_cmp(&data[*b]).unwrap());
-    indices
+    let mut vec = data.to_vec();
+    vec.quick_argsort_mut()
+    // let mut indices = (0..data.len()).collect::<Vec<usize>>();
+    // indices.sort_unstable_by(|a, b| data[*a].partial_cmp(&data[*b]).unwrap());
+    // indices
 }
 
 pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
