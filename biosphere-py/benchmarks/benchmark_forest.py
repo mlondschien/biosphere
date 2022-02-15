@@ -6,8 +6,7 @@ from sklearn.metrics import mean_squared_error
 class ScikitLearnForest(Benchmark):
     name = "scikit-learn forest"
     param_names = ["n", "n_estimators", "mtry", "n_jobs"]
-    # params=[(1000, 10000, 100000), (100, 400), (1, 4), (4, 12)]
-    params=([10000], [100, 400], [12], [1])
+    params=[(1000, 10000, 100000), (100, 400), (1, 4), (4, 12)]
 
     def _setup_model(self, params):
         _, n_estimators, mtry, n_jobs = params
@@ -28,8 +27,7 @@ class ScikitLearnForest(Benchmark):
 class BiosphereForest(Benchmark):
     name = "biosphere forest"
     param_names = ["n", "n_estimators", "mtry", "n_jobs"]
-    # params=[(1000, 10000, 100000), (100, 400), (1, 4), (4, 12)]
-    params=([10000], [100, 400], [12], [1])
+    params=[(1000, 10000, 100000), (100, 400), (1, 4), (4, 12)]
 
     def _setup_model(self, params):
         _, n_estimators, mtry, n_jobs = params

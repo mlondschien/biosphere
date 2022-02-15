@@ -1,7 +1,7 @@
 import timeit
 from abc import ABC, abstractmethod
 from .load import load_nyc_taxi
-from  typing import Any
+from typing import Any
 from sklearn.metrics import mean_squared_error
 
 class Benchmark(ABC):

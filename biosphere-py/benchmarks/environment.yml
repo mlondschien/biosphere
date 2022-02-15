@@ -4,9 +4,9 @@ channels:
   - nodefaults
 dependencies:
   - python =3.9
+  - rust
   - maturin
   - numpy >=1.19.0
   - scikit-learn
   - pandas
   - pyarrow
-  - asv >=0.5
