@@ -152,7 +152,7 @@ impl DecisionTreeNode {
         let mut left_sum: f64 = 0.;
 
         for s in 1..samples.len() {
-            debug_assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
+            assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
 
             cumsum += y[samples[s - 1]];
 

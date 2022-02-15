@@ -12,7 +12,7 @@ use rand::SeedableRng;
 pub fn benchmark_utils(c: &mut Criterion) {
     let seed = 0;
     let mut group = c.benchmark_group("utils");
-    let sizes: &[usize] = &[1000, 10000, 100000, 1000000];
+    let sizes: &[usize] = &[100000];
     for &size in sizes.iter() {
         let mut rng = StdRng::seed_from_u64(seed);
         let x = Array::random_using(size, Uniform::new(0., 1.), &mut rng);
