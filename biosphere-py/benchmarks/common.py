@@ -1,8 +1,11 @@
 import timeit
 from abc import ABC, abstractmethod
-from .load import load_nyc_taxi
 from typing import Any
+
 from sklearn.metrics import mean_squared_error
+
+from .load import load_nyc_taxi
+
 
 class Benchmark(ABC):
     # Measure wall time instead of CPU usage
@@ -13,10 +16,9 @@ class Benchmark(ABC):
     params: Any
     param_names: Any
 
-
     def _time_predict(self, *args):
         self.model.predict(self.X_test)
-    
+
     def time_fit(self, *args):
         self.model.fit(self.X_train, self.y_train)
 
@@ -41,7 +43,4 @@ class Benchmark(ABC):
         pass
 
     def score(self):
-        return mean_squared_error(
-            self.model.predict(self.X_test),
-            self.y_test,
-        )
+        return mean_squared_error(self.model.predict(self.X_test), self.y_test,)
