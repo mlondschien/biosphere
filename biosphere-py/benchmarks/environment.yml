@@ -1,0 +1,12 @@
+name: benchmarks
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python =3.9
+  - maturin
+  - numpy >=1.19.0
+  - scikit-learn
+  - pandas
+  - pyarrow
+  - asv >=0.5

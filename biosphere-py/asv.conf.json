@@ -1,0 +1,16 @@
+{
+    "version": 1,
+    "project": "biosphere",
+    "project_url": "https://github.com/mlondschien/biosphere",
+    "repo": "..",
+    "environment_type": "conda",
+    "show_commit_url": "https://github.com/mlondschien/biosphere/commit/",
+    "pythons": ["3.9"],
+    "conda_channels": ["conda-forge"],
+    "build_command": "maturin develop --release -m biosphere-py/Cargo.toml",
+    "conda_environment_file": "benchmarks/environment.yml",
+    "benchmark_dir": "benchmarks",
+    "env_dir": ".asv/env",
+    "results_dir": ".asv/results",
+    "html_dir": ".asv/html"
+}

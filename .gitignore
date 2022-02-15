@@ -4,3 +4,4 @@ Cargo.lock
 *.so
 *.dll
 *.tar.gz
+.asv
