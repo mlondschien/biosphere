@@ -1,5 +1,5 @@
 # Benchmarks for the README
-from .benchmarks.benchmark_forest import ScikitLearnForest, BiosphereForest
+from benchmarks.benchmark_forest import ScikitLearnForest, BiosphereForest
 import time
 import pandas as pd
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     for parameters in benchmark_parameters:
         for model in models:
             m = model()
-            m.setup(parameters)
+            m.setup(*parameters)
 
             for _ in range(n_samples):
                 tic = time.perf_counter_ns()
