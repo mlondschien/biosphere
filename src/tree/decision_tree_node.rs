@@ -3,6 +3,7 @@ use ndarray::{ArrayView1, ArrayView2};
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::debug_assert;
+use std::thread;
 
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 static FEATURE_THRESHOLD: f64 = 1e-14;
@@ -150,9 +151,9 @@ impl DecisionTreeNode {
         let mut proxy_gain: f64;
         let mut split = 0;
         let mut left_sum: f64 = 0.;
-
+        thread::sleep_ms(1);
         for s in 1..samples.len() {
-            assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
+            debug_assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
 
             cumsum += y[samples[s - 1]];
 
