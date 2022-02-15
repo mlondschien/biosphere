@@ -96,7 +96,7 @@ def feature_enginering():
     )
 
 
-def load_nyc_taxi(train_size, test_size):
+def load_nyc_taxi(train_size, test_size, cat=True):
     df = load_nyc_taxi_raw().head(train_size + test_size)
     df = df[lambda x: x["fare_amount"] > 0]
     df["fare_amount"] = np.log(df["fare_amount"])
@@ -107,5 +107,8 @@ def load_nyc_taxi(train_size, test_size):
 
     y = df.pop("fare_amount").to_numpy()
     X = feature_enginering().fit_transform(df)
+
+    if not cat:
+        X = X[:, 0:5]
 
     return train_test_split(X, y, test_size=test_size / (train_size + test_size))

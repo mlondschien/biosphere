@@ -27,7 +27,14 @@ class Benchmark(ABC):
     def _setup_data(self, params):
         idx = self.param_names.index("n")
         n = params[idx]
-        self.X_train, self.X_test, self.y_train, self.y_test = load_nyc_taxi(n, n)
+
+        if "cat" in self.param_names:
+            idx = self.param_names.index("cat")
+            cat = params[idx]
+        else:
+            cat = True
+
+        self.X_train, self.X_test, self.y_train, self.y_test = load_nyc_taxi(n, n, cat)
 
     @abstractmethod  # Required for asv to skip.
     def _setup_model(self, params):

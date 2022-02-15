@@ -28,12 +28,12 @@ class ScikitLearnForest(Benchmark):
 
 class BiosphereForest(Benchmark):
     name = "biosphere forest"
-    param_names = ["n", "n_estimators", "mtry"]
-    params=([1000, 10000, 100000], [100], [4, 12])
+    param_names = ["n", "cat", "n_estimators", "mtry"]
+    params=([1000, 10000, 100000], [True, False], [100], [4, 12])
     # params=([10000], [100, 400], [12], [1])
 
     def _setup_model(self, params):
-        _, n_estimators, mtry = params
+        _, _, n_estimators, mtry = params
         self.model = RandomForest(
             n_trees=n_estimators,
             max_depth=8,
