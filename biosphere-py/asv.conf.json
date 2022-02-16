@@ -1,5 +1,6 @@
 {
     "version": 1,
+    "branches": ["main"],
     "project": "biosphere",
     "project_url": "https://github.com/mlondschien/biosphere",
     "repo": "..",

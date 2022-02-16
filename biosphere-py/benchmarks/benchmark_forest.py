@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
@@ -39,9 +41,12 @@ class BiosphereForest(Benchmark):
 
     def _setup_model(self, params):
         _, n_estimators, mtry = params
-        self.model = RandomForest(
-            n_trees=n_estimators, max_depth=8, mtry=mtry, n_jobs=2,
-        )
+        kwargs = {"n_trees": n_estimators, "max_depth": 8, "mtry": mtry}
+
+        if "n_jobs" in inspect.getargspec(RandomForest.__init__):
+            kwargs["n_jobs"] = 2
+
+        self.model = RandomForest(**kwargs)
 
     def _time_fit_predict_oob(self):
         predictions = self.model.fit_predict_oob(self.X_train, self.y_train)
