@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     for parameters in benchmark_parameters:
         for model in models:
-            m = model()
+            m = model(n_jobs=4)
             m.setup(*parameters)
 
             for _ in range(n_samples):
