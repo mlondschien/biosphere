@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 - (2022-02-14)
+## 0.2.2 - (2022-02-22)
 
 - **Other changes:**
     - Speedup of `DecisisionTreeNode.split_samples` resulting in overall 6 - 20% faster
