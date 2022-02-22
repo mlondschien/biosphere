@@ -6,7 +6,7 @@ repository = "https://github.com/mlondschien/biosphere/"
 readme = "README.md"
 license = "BSD-3-Clause"
 version = "0.2.2"
-edition = "2018"
+edition = "2021"
 exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yaml", ".gitignore"]
 
 [lib]
