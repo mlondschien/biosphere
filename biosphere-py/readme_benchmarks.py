@@ -22,7 +22,7 @@ benchmark_parameters = [
 
 models = [ScikitLearnForest, BiosphereForest]
 
-n_samples = 10
+n_samples = 1
 
 if __name__ == "__main__":
     results = pd.DataFrame(
