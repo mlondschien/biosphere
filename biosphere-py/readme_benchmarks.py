@@ -6,18 +6,18 @@ import pandas as pd
 from benchmarks.benchmark_forest import BiosphereForest, ScikitLearnForest
 
 benchmark_parameters = [
-    (1000, 400, 12, 4),
-    (2000, 400, 12, 4),
-    (4000, 400, 12, 4),
-    (8000, 400, 12, 4),
-    (16000, 400, 12, 4),
-    (32000, 400, 12, 4),
-    (64000, 400, 12, 4),
-    (128000, 400, 12, 4),
-    (256000, 400, 12, 4),
-    (512000, 400, 12, 4),
-    (1024000, 400, 12, 4),
-    (2048000, 400, 12, 4),
+    (1000, 400, 12),
+    (2000, 400, 12),
+    (4000, 400, 12),
+    (8000, 400, 12),
+    (16000, 400, 12),
+    (32000, 400, 12),
+    (64000, 400, 12),
+    (128000, 400, 12),
+    (256000, 400, 12),
+    (512000, 400, 12),
+    (1024000, 400, 12),
+    (2048000, 400, 12),
 ]
 
 models = [ScikitLearnForest, BiosphereForest]
@@ -26,16 +26,7 @@ n_samples = 10
 
 if __name__ == "__main__":
     results = pd.DataFrame(
-        columns=[
-            "model",
-            "n",
-            "mtry",
-            "n_estimators",
-            "n_jobs",
-            "time",
-            "score",
-            "oob_score",
-        ]
+        columns=["model", "n", "mtry", "n_estimators", "time", "score", "oob_score"]
     )
 
     for parameters in benchmark_parameters:
@@ -60,7 +51,7 @@ if __name__ == "__main__":
             print(
                 f"{model.name} {parameters} "
                 f"time={results.tail(n_samples)['time'].mean()/1e9:.4f}"
-                " score={score:.4f} oob_score={oob_score:.4f}"
+                f" score={score:.4f} oob_score={oob_score:.4f}"
             )
 
     results.to_csv("results.csv")
