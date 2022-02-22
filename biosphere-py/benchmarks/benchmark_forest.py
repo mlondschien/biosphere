@@ -8,9 +8,11 @@ from .common import Benchmark
 
 
 class ScikitLearnForest(Benchmark):
+    def __init__(self, n_jobs=2):
+        self.n_jobs = n_jobs  # GitHub CI has two nodes.
+
     name = "scikit-learn forest"
     param_names = ["n", "n_estimators", "mtry"]
-    # params=([1000, 10000, 100000], [100, 400], [4, 12], [2])
     params = ([10000], [100], [4, 12])
 
     def _setup_model(self, params):
@@ -19,7 +21,7 @@ class ScikitLearnForest(Benchmark):
             n_estimators=n_estimators,
             max_depth=8,
             max_features=mtry,
-            n_jobs=2,
+            n_jobs=-1 if self.n_jobs is None else self.n_jobs,
             oob_score=True,
         )
 
@@ -32,16 +34,23 @@ class ScikitLearnForest(Benchmark):
 
 
 class BiosphereForest(Benchmark):
+    def __init__(self, n_jobs=2):
+        self.n_jobs = n_jobs  # GitHub CI has two nodes.
+
     name = "biosphere forest"
     param_names = ["n", "cat", "n_estimators", "mtry"]
     params = ([1000, 10000, 100000], [True, False], [100], [4, 12])
-    # params=([10000], [100, 400], [12], [1])
+
 
     def _setup_model(self, params):
         _, _, n_estimators, mtry = params
-        self.model = RandomForest(
-            n_trees=n_estimators, max_depth=8, mtry=mtry, n_jobs=2,
-        )
+        kwargs = {"n_trees": n_estimators, "max_depth": 8, "mtry": mtry}
+
+        # inspect.getargspec(RandomForest.__init__) does not work
+        try:
+            self.model = RandomForest(**kwargs, n_jobs=self.n_jobs)
+        except TypeError:
+            self.model = RandomForest(**kwargs)
 
     def _time_fit_predict_oob(self):
         predictions = self.model.fit_predict_oob(self.X_train, self.y_train)

@@ -12,7 +12,7 @@ class BiosphereTree(Benchmark):
 
     def _setup_model(self, params):
         _, mtry = params
-        self.model = DecisionTree(max_depth=8, mtry=mtry,)
+        self.model = DecisionTree(max_depth=8, mtry=mtry)
 
 
 class ScikitLearnTree(Benchmark):
