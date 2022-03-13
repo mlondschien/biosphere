@@ -19,6 +19,10 @@ impl Mtry {
 
         value.max(1).min(n_features)
     }
+
+    pub fn default() -> Mtry {
+        Mtry::None
+    }
 }
 
 #[derive(Clone)]
@@ -86,8 +90,6 @@ impl DecisionTreeParameters {
         self
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
