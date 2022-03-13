@@ -2,8 +2,10 @@ use crate::tree::DecisionTreeParameters;
 use ndarray::{ArrayView1, ArrayView2};
 use rand::seq::SliceRandom;
 use rand::Rng;
+use std::debug_assert;
 
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
+static FEATURE_THRESHOLD: f64 = 1e-14;
 
 #[derive(Default)]
 pub struct DecisionTreeNode {
@@ -27,6 +29,8 @@ impl DecisionTreeNode {
         samples: Vec<&mut [usize]>,
         n_samples: usize,
         mut constant_features: Vec<bool>,
+        // Used in split_samples. Passed here to avoid reallocating.
+        all_false: &mut [bool],
         sum: f64,
         rng: &mut impl Rng,
         current_depth: usize,
@@ -39,7 +43,7 @@ impl DecisionTreeNode {
         }
 
         if n_samples <= parameters.min_samples_split {
-            return self.leaf_node(sum / X.nrows() as f64);
+            return self.leaf_node(sum / n_samples as f64);
         }
 
         let mut best_gain = 0.;
@@ -62,12 +66,19 @@ impl DecisionTreeNode {
                 continue;
             }
 
+            // X[, feature] is constant on this segment.
+            if X[[*samples[feature].last().unwrap(), feature]]
+                - X[[*samples[feature].first().unwrap(), feature]]
+                < FEATURE_THRESHOLD
+            {
+                constant_features[feature] = true;
+                continue;
+            }
+
             let (split, split_val, gain, left_sum) =
                 self.find_best_split(X, y, feature, samples[feature], sum);
 
-            if gain <= MIN_GAIN_TO_SPLIT {
-                constant_features[feature_idx] = true;
-            } else if gain > best_gain {
+            if gain > best_gain {
                 best_gain = gain;
                 best_split = split;
                 best_split_val = split_val;
@@ -76,17 +87,16 @@ impl DecisionTreeNode {
             }
         }
 
-        if best_gain <= 0. {
+        if best_gain <= MIN_GAIN_TO_SPLIT {
             return self.leaf_node(sum / n_samples as f64);
         }
 
         let (left_samples, right_samples) = self.split_samples(
-            X,
             samples,
             best_split,
             &constant_features,
             best_feature,
-            best_split_val,
+            all_false,
         );
 
         let mut left = DecisionTreeNode::default();
@@ -96,6 +106,7 @@ impl DecisionTreeNode {
             left_samples,
             best_split,
             constant_features.clone(),
+            all_false,
             left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -110,6 +121,7 @@ impl DecisionTreeNode {
             right_samples,
             n_samples - best_split,
             constant_features,
+            all_false,
             sum - left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -130,12 +142,6 @@ impl DecisionTreeNode {
         samples: &[usize],
         sum: f64,
     ) -> (usize, f64, f64, f64) {
-        // X is constant in this segment.
-        if X[[*samples.last().unwrap(), feature]] - X[[*samples.first().unwrap(), feature]] < 1e-12
-        {
-            return (0, 0., 0., 0.);
-        }
-
         let n = samples.len();
         let mut cumsum = 0.;
         let mut max_proxy_gain = 0.;
@@ -144,6 +150,8 @@ impl DecisionTreeNode {
         let mut left_sum: f64 = 0.;
 
         for s in 1..samples.len() {
+            assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
+
             cumsum += y[samples[s - 1]];
 
             // Hackedy hack.
@@ -168,6 +176,8 @@ impl DecisionTreeNode {
                 left_sum = cumsum;
             }
         }
+
+        debug_assert!((cumsum + y[*samples.last().unwrap()] - sum).abs() < 1e-12);
 
         // We are interested in the gain when splitting at s, the improvement in impurity
         // through splitting: G(s) = L(start, stop) - L(start, s) - L(s, stop).
@@ -198,13 +208,20 @@ impl DecisionTreeNode {
     /// X[left, feature] and X[right, feature] are still ordered.
     fn split_samples<'a>(
         &self,
-        X: &ArrayView2<f64>,
         samples: Vec<&'a mut [usize]>,
         split: usize,
         constant_features: &[bool],
         best_feature: usize,
-        best_split_val: f64,
+        // best_split_val: f64,
+        all_false: &mut [bool],
     ) -> (Vec<&'a mut [usize]>, Vec<&'a mut [usize]>) {
+        // We replace lookups & comparisons X[[idx, best_feature]] > best_split_val
+        // with a lookup all_false[idx]. This is faster. Since best_feature was split
+        // at best_split_val, the comparison holds true exactly for samples after split.
+        for s in samples[best_feature][split..].iter() {
+            all_false[*s] = true;
+        }
+
         let n = samples[best_feature].len();
         let mut new_samples_left = Vec::<&mut [usize]>::with_capacity(samples.len());
         let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
@@ -242,6 +259,7 @@ impl DecisionTreeNode {
                 initialized = true;
                 continue;
             }
+
             // https://stackoverflow.com/a/10334085/10586763
             // Even digits in the example correspond to indices belonging to the right
             // node, odd digits to the left.
@@ -252,7 +270,8 @@ impl DecisionTreeNode {
             current_right = 0;
 
             for idx in 0..n {
-                if X[[sample_[idx], best_feature]] > best_split_val {
+                // if X[[sample_[idx], best_feature]] > best_split_val {
+                if all_false[sample_[idx]] {
                     new_right[current_right] = sample_[idx];
                     current_right += 1;
                 } else {
@@ -267,12 +286,13 @@ impl DecisionTreeNode {
             new_right = result.1;
         }
 
-        if !first_left.is_empty() {
+        if initialized {
             current_left = 0;
             current_right = 0;
 
             for idx in 0..split {
-                if X[[first_left[idx], best_feature]] > best_split_val {
+                // if X[[first_left[idx], best_feature]] > best_split_val {
+                if all_false[first_left[idx]] {
                     new_right[current_right] = first_left[idx];
                     current_right += 1;
                 } else {
@@ -282,7 +302,8 @@ impl DecisionTreeNode {
             }
 
             for idx in 0..(n - split) {
-                if X[[copy_of_first_right[idx], best_feature]] > best_split_val {
+                // if X[[copy_of_first_right[idx], best_feature]] > best_split_val {
+                if all_false[copy_of_first_right[idx]] {
                     new_right[current_right] = copy_of_first_right[idx];
                     current_right += 1;
                 } else {
@@ -292,6 +313,11 @@ impl DecisionTreeNode {
             }
             new_samples_left.insert(index_of_first, first_left);
             new_samples_right.insert(index_of_first, new_right);
+        }
+
+        // Reset all_false to be all false.
+        for s in new_samples_right[best_feature].iter() {
+            all_false[*s] = false;
         }
 
         (new_samples_left, new_samples_right)
@@ -304,7 +330,7 @@ mod tests {
     use crate::testing::is_sorted;
     use crate::utils::sorted_samples;
     use assert_approx_eq::*;
-    use ndarray::{arr1, arr2, s, Array, Axis};
+    use ndarray::{arr1, arr2, s, Array, Array1, Axis};
     use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
     use rand::rngs::StdRng;
@@ -351,11 +377,28 @@ mod tests {
         assert_approx_eq!(expected_gain, gain);
     }
 
+    #[test]
+    fn test_find_trivial_best_split() {
+        let mut rng = StdRng::seed_from_u64(0);
+        let X = Array::random_using((100, 1), Uniform::new(0., 1.), &mut rng);
+        let y = Array1::<f64>::zeros(100);
+
+        let node = DecisionTreeNode::default();
+        let mut samples = (0..100).collect::<Vec<usize>>();
+        samples.sort_unstable_by(|a, b| X[[*a, 0]].partial_cmp(&X[[*b, 0]]).unwrap());
+
+        let (split, split_val, gain, sum) =
+            node.find_best_split(&X.view(), &y.view(), 0, &samples, 0.);
+        assert_eq!((split, split_val, gain, sum), (0, 0., 0., 0.));
+    }
+
     #[rstest]
-    #[case(50, 0, 0.5, 5)]
-    #[case(100, 1, 0.1, 5)]
+    #[case(50, 1, 0.5, 5)]
+    #[case(100, 2, 0.1, 5)]
     #[case(100, 0, 0.1, 1)]
-    #[case(100, 0, 1., 10)]
+    #[case(100, 5, 1., 10)]
+    #[case(100, 5, 0.2, 10)]
+    #[case(500, 5, 0.2, 10)]
     fn test_split_samples(
         #[case] n_samples: usize,
         #[case] best_feature: usize,
@@ -364,7 +407,6 @@ mod tests {
     ) {
         let mut rng = StdRng::seed_from_u64(0);
         let X = Array::random_using((100, d), Uniform::new(0., 1.), &mut rng);
-        let X_view = X.view();
 
         let mut single_samples: Vec<usize> =
             (0..n_samples).map(|_| rng.gen_range(0..100)).collect();
@@ -379,23 +421,24 @@ mod tests {
             .count();
         let samples_references = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
 
-        let all_false = vec![false; X.ncols()];
+        let mut all_false_but_first = vec![false; X.ncols()];
+        all_false_but_first[0] = true;
 
         let node = DecisionTreeNode::default();
+        let mut all_false = vec![false; X.nrows()];
 
         let (left, right) = node.split_samples(
-            &X_view,
             samples_references,
             split,
-            &all_false,
+            &all_false_but_first,
             best_feature,
-            best_split_val,
+            &mut all_false,
         );
 
         assert!(left.len() == d);
         assert!(right.len() == d);
 
-        for (feature, (l, r)) in left.into_iter().zip(right).enumerate() {
+        for (feature, (l, r)) in left.into_iter().zip(right).enumerate().skip(1) {
             assert!(is_sorted(&X.column(feature).select(Axis(0), &l)));
             assert!(is_sorted(&X.column(feature).select(Axis(0), &r)));
 

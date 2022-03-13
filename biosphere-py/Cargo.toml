@@ -1,7 +1,7 @@
 [package]
 name = "biosphere_py"
-version = "0.2.0"
-edition = "2018"
+version = "0.2.2"
+edition = "2021"
 
 [lib]
 name = "biosphere"

@@ -1,6 +1,8 @@
-import numpy as np
 from pathlib import Path
-from biosphere import RandomForest, DecisionTree
+
+import numpy as np
+
+from biosphere import RandomForest
 
 _IRIS_FILE = "iris.csv"
 _IRIS_PATH = Path(__file__).resolve().parents[2] / "testdata" / _IRIS_FILE
@@ -16,8 +18,8 @@ def test_forest():
     predictions = random_forest.predict(X)
 
     oob_mse = np.mean((oob_predictions - y) ** 2)
-    mse = np.mean((predictions - y)**2)
-    
+    mse = np.mean((predictions - y) ** 2)
+
     assert oob_mse < 0.05
     assert mse < oob_mse / 2
 
@@ -33,7 +35,7 @@ def test_tree():
     predictions = random_forest.predict(X)
 
     oob_mse = np.mean((oob_predictions - y) ** 2)
-    mse = np.mean((predictions - y)**2)
-    
+    mse = np.mean((predictions - y) ** 2)
+
     assert oob_mse < 0.05
     assert mse < oob_mse / 2

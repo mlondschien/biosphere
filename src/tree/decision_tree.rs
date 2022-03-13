@@ -48,6 +48,7 @@ impl<'a> DecisionTree {
         }
 
         let n_samples = samples[0].len();
+        let mut all_false = vec![false; X.nrows()];
 
         self.node.split(
             X,
@@ -55,6 +56,7 @@ impl<'a> DecisionTree {
             samples,
             n_samples,
             vec![false; X.ncols()],
+            &mut all_false,
             sum,
             &mut rng,
             0,
@@ -106,7 +108,15 @@ mod tests {
         tree.fit(&X, &y);
         let predictions = tree.predict(&X);
 
-        let mse = (predictions - y).mapv(|x| x * x).mean().unwrap();
-        assert!(mse <= 0.1, "Got mse of {}.", mse);
+        let mse = (&predictions - &y).mapv(|x| x * x).mean().unwrap();
+        assert!(mse <= 0.02, "Got mse of {}.", mse);
+
+        let mut another_tree = DecisionTree::default();
+        another_tree.fit(&X, &predictions.view());
+        let another_predictions = another_tree.predict(&X);
+
+        // predictions were created by a decision tree. We should be able to
+        // perfectly replicate these with another decision tree.
+        assert_eq!(predictions - another_predictions, Array1::<f64>::zeros(150));
     }
 }
