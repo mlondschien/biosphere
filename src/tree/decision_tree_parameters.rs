@@ -42,7 +42,7 @@ impl DecisionTreeParameters {
     pub fn default() -> Self {
         DecisionTreeParameters {
             max_depth: None,
-            mtry: Mtry::None,
+            mtry: Mtry::default(),
             min_samples_split: 2,
             min_samples_leaf: 1,
             seed: 0,
