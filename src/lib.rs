@@ -4,7 +4,6 @@ pub use forest::RandomForest;
 pub use forest::RandomForestParameters;
 pub use tree::{DecisionTree, DecisionTreeParameters, MaxFeatures};
 mod forest;
-mod quick_sort;
 mod tree;
 pub mod utils; // This is public for benchmarking only.
 
