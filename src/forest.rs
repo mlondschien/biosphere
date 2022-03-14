@@ -1,4 +1,4 @@
-use crate::tree::{DecisionTree, DecisionTreeParameters, Mtry};
+use crate::tree::{DecisionTree, DecisionTreeParameters, MaxFeatures};
 use crate::utils::{
     argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
 };
@@ -22,7 +22,7 @@ impl RandomForestParameters {
         n_trees: usize,
         seed: u64,
         max_depth: Option<usize>,
-        mtry: Mtry,
+        max_features: MaxFeatures,
         min_samples_leaf: usize,
         min_samples_split: usize,
         n_jobs: Option<usize>,
@@ -30,7 +30,7 @@ impl RandomForestParameters {
         RandomForestParameters {
             decision_tree_parameters: DecisionTreeParameters::new(
                 max_depth,
-                mtry,
+                max_features,
                 min_samples_split,
                 min_samples_leaf,
                 0,
@@ -65,8 +65,10 @@ impl RandomForestParameters {
         self
     }
 
-    pub fn with_mtry(mut self, mtry: Mtry) -> Self {
-        self.decision_tree_parameters = self.decision_tree_parameters.with_mtry(mtry);
+    pub fn with_max_features(mut self, max_features: MaxFeatures) -> Self {
+        self.decision_tree_parameters = self
+            .decision_tree_parameters
+            .with_max_features(max_features);
         self
     }
 
@@ -149,7 +151,7 @@ impl RandomForest {
                         self.random_forest_parameters
                             .decision_tree_parameters
                             .clone()
-                            .with_seed(seed),
+                            .with_random_state(seed),
                     );
 
                     let weights = sample_weights(X.nrows(), &mut rng);
@@ -203,7 +205,8 @@ impl RandomForest {
                 .into_par_iter()
                 .map(move |seed| {
                     let mut rng = StdRng::seed_from_u64(seed);
-                    let mut tree = DecisionTree::new(tree_parameters.clone().with_seed(rng.gen()));
+                    let mut tree =
+                        DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen()));
 
                     let weights = sample_weights(X.nrows(), &mut rng);
                     let mut samples = sample_indices_from_weights(&weights, &indices);
