@@ -1,5 +1,6 @@
 mod decision_tree;
 mod random_forest;
+mod utils;
 
 use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 

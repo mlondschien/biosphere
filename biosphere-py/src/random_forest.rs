@@ -1,3 +1,4 @@
+use crate::utils::PyMtry;
 use biosphere::RandomForest as BioForest;
 use biosphere::RandomForestParameters;
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
@@ -16,7 +17,7 @@ impl RandomForest {
     #[args(
         n_trees = 100,
         max_depth = 4,
-        mtry = "None",
+        mtry = "PyMtry::default()",
         min_samples_split = 2,
         min_samples_leaf = 1,
         seed = 0,
@@ -25,7 +26,7 @@ impl RandomForest {
     pub fn __init__(
         n_trees: usize,
         max_depth: Option<usize>,
-        mtry: Option<usize>,
+        mtry: PyMtry,
         min_samples_split: usize,
         min_samples_leaf: usize,
         seed: u64,
@@ -35,7 +36,7 @@ impl RandomForest {
             n_trees,
             seed,
             max_depth,
-            mtry,
+            mtry.mtry,
             min_samples_split,
             min_samples_leaf,
             n_jobs,
