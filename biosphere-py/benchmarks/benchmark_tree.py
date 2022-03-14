@@ -11,8 +11,14 @@ class BiosphereTree(Benchmark):
     params = ([1000, 10000, 100000, 1000000], [4, 12])
 
     def _setup_model(self, params):
-        _, mtry = params
-        self.model = DecisionTree(max_depth=8, mtry=mtry)
+        _, max_features = params
+
+        # inspect.getargspec(DecisionTree.__init__) does not work
+        try:
+            self.model = DecisionTree(max_depth=8, max_features=max_features,)
+        # For biosphere<0.3.0, max_features was called mtry
+        except TypeError:
+            self.model = DecisionTree(max_depth=8, mtry=max_features)
 
 
 class ScikitLearnTree(Benchmark):

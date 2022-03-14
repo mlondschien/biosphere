@@ -53,7 +53,7 @@ class BiosphereForest(Benchmark):
                 max_features=max_features,
                 n_estimators=n_estimators,
             )
-        # For biosphere<0.3.0, max_features was calles mtry and n_trees was called
+        # For biosphere<0.3.0, max_features was called mtry and n_trees was called
         # n_estimators.
         except TypeError:
             try:
