@@ -15,7 +15,7 @@ pub struct RandomForest {
 impl RandomForest {
     #[new]
     #[args(
-        n_trees = 100,
+        n_estimators = 100,
         max_depth = 4,
         max_features = "PyMaxFeatures::default()",
         min_samples_split = 2,
@@ -24,16 +24,16 @@ impl RandomForest {
         n_jobs = "None"
     )]
     pub fn __init__(
-        n_trees: usize,
+        n_estimators: usize,
         max_depth: Option<usize>,
         max_features: PyMaxFeatures,
         min_samples_split: usize,
         min_samples_leaf: usize,
         random_state: u64,
-        n_jobs: Option<usize>,
+        n_jobs: Option<i32>,
     ) -> PyResult<Self> {
         let random_forest_parameters = RandomForestParameters::new(
-            n_trees,
+            n_estimators,
             random_state,
             max_depth,
             max_features.value,
