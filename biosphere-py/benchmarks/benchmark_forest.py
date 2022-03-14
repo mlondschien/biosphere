@@ -12,17 +12,17 @@ class ScikitLearnForest(Benchmark):
         self.n_jobs = n_jobs  # GitHub CI has two nodes.
 
     name = "scikit-learn forest"
-    param_names = ["n", "n_estimators", "mtry"]
+    param_names = ["n", "n_estimators", "max_features"]
     # params=([1000, 10000, 100000], [100, 400], [4, 12], [2])
     params = ([10000], [100], [4, 12])
 
     def _setup_model(self, params):
-        _, n_estimators, mtry = params
+        _, n_estimators, max_features = params
         self.model = RandomForestRegressor(
             n_estimators=n_estimators,
             max_depth=8,
-            max_features=mtry,
-            n_jobs=-1 if self.n_jobs is None else self.n_jobs,
+            max_features=max_features,
+            n_jobs=self.n_jobs,
             oob_score=True,
         )
 
@@ -39,18 +39,33 @@ class BiosphereForest(Benchmark):
         self.n_jobs = n_jobs  # GitHub CI has two nodes.
 
     name = "biosphere forest"
-    param_names = ["n", "n_estimators", "mtry"]
+    param_names = ["n", "n_estimators", "max_features"]
     params = ([1000, 10000, 100000], [100], [4, 12])
 
     def _setup_model(self, params):
-        _, n_estimators, mtry = params
-        kwargs = {"n_trees": n_estimators, "max_depth": 8, "mtry": mtry}
+        _, n_estimators, max_features = params
 
         # inspect.getargspec(RandomForest.__init__) does not work
         try:
-            self.model = RandomForest(**kwargs, n_jobs=self.n_jobs)
+            self.model = RandomForest(
+                max_depth=8,
+                n_jobs=self.n_jobs,
+                max_features=max_features,
+                n_estimators=n_estimators,
+            )
+        # For biosphere<0.3.0, max_features was called mtry and n_trees was called
+        # n_estimators.
         except TypeError:
-            self.model = RandomForest(**kwargs)
+            try:
+                self.model = RandomForest(
+                    max_depth=8,
+                    n_jobs=self.n_jobs,
+                    mtry=max_features,
+                    n_trees=n_estimators,
+                )
+            # For biosphere<0.2.0, no parallelization
+            except TypeError:
+                self.model = RandomForest(max_depth=8, mtry=max_features)
 
     def _time_fit_predict_oob(self):
         predictions = self.model.fit_predict_oob(self.X_train, self.y_train)

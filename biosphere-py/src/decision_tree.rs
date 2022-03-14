@@ -1,4 +1,4 @@
-use crate::utils::PyMtry;
+use crate::utils::PyMaxFeatures;
 use biosphere::DecisionTree as BioDecisionTree;
 use biosphere::DecisionTreeParameters;
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
@@ -16,24 +16,24 @@ impl DecisionTree {
     #[new]
     #[args(
         max_depth = 4,
-        mtry = "PyMtry::default()",
+        max_features = "PyMaxFeatures::default()",
         min_samples_split = 2,
         min_samples_leaf = 1,
-        seed = 1
+        random_state = 0
     )]
     pub fn __init__(
         max_depth: Option<usize>,
-        mtry: PyMtry,
+        max_features: PyMaxFeatures,
         min_samples_split: usize,
         min_samples_leaf: usize,
-        seed: u64,
+        random_state: u64,
     ) -> PyResult<Self> {
         let decision_tree_parameters = DecisionTreeParameters::new(
             max_depth,
-            mtry.mtry,
+            max_features.value,
             min_samples_split,
             min_samples_leaf,
-            seed,
+            random_state,
         );
         Ok(DecisionTree {
             tree: BioDecisionTree::new(decision_tree_parameters),

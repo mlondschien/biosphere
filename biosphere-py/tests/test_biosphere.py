@@ -40,7 +40,7 @@ def test_tree():
 
 
 # TODO: Better test checking that supplying parameters had correct effect.
-@pytest.mark.parametrize("mtry", [0.2, 3, "sqrt", None])
-def test_mtry(mtry):
-    _ = RandomForest(mtry=mtry)
-    _ = DecisionTree(mtry=mtry)
+@pytest.mark.parametrize("max_features", [0.2, 3, "sqrt", None])
+def test_max_features(max_features):
+    _ = RandomForest(max_features=max_features)
+    _ = DecisionTree(max_features=max_features)

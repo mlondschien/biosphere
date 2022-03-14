@@ -2,7 +2,7 @@
 #![allow(non_snake_case)]
 pub use forest::RandomForest;
 pub use forest::RandomForestParameters;
-pub use tree::{DecisionTree, DecisionTreeParameters, Mtry};
+pub use tree::{DecisionTree, DecisionTreeParameters, MaxFeatures};
 mod forest;
 mod quick_sort;
 mod tree;

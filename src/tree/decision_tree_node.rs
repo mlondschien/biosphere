@@ -58,7 +58,7 @@ impl DecisionTreeNode {
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
             // Note that we continue splitting until at least on non-constant feature
             // was evaluated.
-            if feature_idx >= parameters.mtry.mtry(X.ncols()) && best_gain > 0. {
+            if feature_idx >= parameters.max_features.from_n_features(X.ncols()) && best_gain > 0. {
                 break;
             }
 
