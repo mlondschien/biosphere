@@ -45,24 +45,27 @@ class BiosphereForest(Benchmark):
     def _setup_model(self, params):
         _, n_estimators, max_features = params
 
-        kwargs = {
-            "n_estimators": n_estimators,
-            "max_depth": 8,
-            "max_features": max_features,
-        }
-
         # inspect.getargspec(RandomForest.__init__) does not work
         try:
             self.model = RandomForest(
-                **kwargs, n_jobs=self.n_jobs, max_features=max_features
+                max_depth=8,
+                n_jobs=self.n_jobs,
+                max_features=max_features,
+                n_estimators=n_estimators,
             )
-        except TypeError:  # For biosphere<0.3.0, max_features was calles mtry
+        # For biosphere<0.3.0, max_features was calles mtry and n_trees was called
+        # n_estimators.
+        except TypeError:
             try:
                 self.model = RandomForest(
-                    **kwargs, n_jobs=self.n_jobs, mtry=max_features
+                    max_depth=8,
+                    n_jobs=self.n_jobs,
+                    mtry=max_features,
+                    n_trees=n_estimators,
                 )
-            except TypeError:  # For biosphere<0.2.0, no parallelization
-                self.model = RandomForest(**kwargs, mtry=max_features)
+            # For biosphere<0.2.0, no parallelization
+            except TypeError:
+                self.model = RandomForest(max_depth=8, mtry=max_features)
 
     def _time_fit_predict_oob(self):
         predictions = self.model.fit_predict_oob(self.X_train, self.y_train)
