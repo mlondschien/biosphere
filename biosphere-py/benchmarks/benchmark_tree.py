@@ -7,7 +7,7 @@ from .common import Benchmark
 
 class BiosphereTree(Benchmark):
     name = "biosphere tree"
-    param_names = ["n", "mtry"]
+    param_names = ["n", "max_features"]
     params = ([1000, 10000, 100000, 1000000], [4, 12])
 
     def _setup_model(self, params):
@@ -23,9 +23,9 @@ class BiosphereTree(Benchmark):
 
 class ScikitLearnTree(Benchmark):
     name = "scikit-learn tree"
-    param_names = ["n", "mtry"]
+    param_names = ["n", "max_fetures"]
     params = ([1000, 10000, 100000, 1000000], [4, 12])
 
     def _setup_model(self, params):
-        _, mtry = params
-        self.model = DecisionTreeRegressor(max_depth=8, max_features=mtry,)
+        _, max_features = params
+        self.model = DecisionTreeRegressor(max_depth=8, max_features=max_features)
