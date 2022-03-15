@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum MaxFeatures {
     // Consider all `d` features at each split.
     None,
