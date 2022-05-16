@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 - (2022-03-14)
+
+- **Breaking changes:**
+    - The arguments `mtry` and `seed` to `DecisionTree` and `RandomForest` have been renamed to `max_features` and `random_state`, aligning them with their scikit-learn counterparts.
+    - Supplying `n_jobs=None` will now result in no parallelization, aligning its behaviour with scikit-learn. To use all processes, use `n_jobs=-1`.
+
+- **New features:**
+    - The `max_features` parameter for classes `DecisionTree` and `RandomForest` can now be supplied with a fraction, an integer, `None` and `"sqrt"`.
+
 ## 0.2.2 - (2022-02-22)
 
 - **Other changes:**

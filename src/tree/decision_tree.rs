@@ -40,7 +40,7 @@ impl<'a> DecisionTree {
         y: &ArrayView1<f64>,
         samples: Vec<&mut [usize]>,
     ) {
-        let mut rng = StdRng::seed_from_u64(self.decision_tree_parameters.seed);
+        let mut rng = StdRng::seed_from_u64(self.decision_tree_parameters.random_state);
 
         let mut sum = 0.;
         for s in samples[0].iter() {

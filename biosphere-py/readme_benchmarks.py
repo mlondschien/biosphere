@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
             print(
                 f"{model.name} {parameters} "
-                f"time={results.tail(n_samples)['time'].mean()/1e9:.4f}"
+                f"time={results.tail(n_samples)['time'].min()/1e9:.4f}"
                 f" score={score:.4f} oob_score={oob_score:.4f}"
             )
 

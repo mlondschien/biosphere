@@ -1,4 +1,4 @@
-use crate::tree::{DecisionTree, DecisionTreeParameters};
+use crate::tree::{DecisionTree, DecisionTreeParameters, MaxFeatures};
 use crate::utils::{
     argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
 };
@@ -12,30 +12,32 @@ use rayon::ThreadPoolBuilder;
 #[derive(Clone)]
 pub struct RandomForestParameters {
     decision_tree_parameters: DecisionTreeParameters,
-    n_trees: usize,
+    n_estimators: usize,
     seed: u64,
-    n_jobs: Option<usize>,
+    // The number of jobs to run in parallel for `fit` and `fit_predict_oob`.
+    // `None` means 1. `-1` means using all processors.
+    n_jobs: Option<i32>,
 }
 
 impl RandomForestParameters {
     pub fn new(
-        n_trees: usize,
+        n_estimators: usize,
         seed: u64,
         max_depth: Option<usize>,
-        mtry: Option<usize>,
+        max_features: MaxFeatures,
         min_samples_leaf: usize,
         min_samples_split: usize,
-        n_jobs: Option<usize>,
+        n_jobs: Option<i32>,
     ) -> Self {
         RandomForestParameters {
             decision_tree_parameters: DecisionTreeParameters::new(
                 max_depth,
-                mtry,
+                max_features,
                 min_samples_split,
                 min_samples_leaf,
                 0,
             ),
-            n_trees,
+            n_estimators,
             seed,
             n_jobs,
         }
@@ -44,14 +46,14 @@ impl RandomForestParameters {
     pub fn default() -> Self {
         RandomForestParameters {
             decision_tree_parameters: DecisionTreeParameters::default(),
-            n_trees: 100,
+            n_estimators: 100,
             seed: 0,
             n_jobs: None,
         }
     }
 
-    pub fn with_n_trees(mut self, n_trees: usize) -> Self {
-        self.n_trees = n_trees;
+    pub fn with_n_estimators(mut self, n_estimators: usize) -> Self {
+        self.n_estimators = n_estimators;
         self
     }
 
@@ -65,8 +67,10 @@ impl RandomForestParameters {
         self
     }
 
-    pub fn with_mtry(mut self, mtry: Option<usize>) -> Self {
-        self.decision_tree_parameters = self.decision_tree_parameters.with_mtry(mtry);
+    pub fn with_max_features(mut self, max_features: MaxFeatures) -> Self {
+        self.decision_tree_parameters = self
+            .decision_tree_parameters
+            .with_max_features(max_features);
         self
     }
 
@@ -84,7 +88,7 @@ impl RandomForestParameters {
         self
     }
 
-    pub fn with_n_jobs(mut self, n_jobs: Option<usize>) -> Self {
+    pub fn with_n_jobs(mut self, n_jobs: Option<i32>) -> Self {
         self.n_jobs = n_jobs;
         self
     }
@@ -120,7 +124,19 @@ impl RandomForest {
     pub fn fit(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) {
         let mut thread_pool_builder = ThreadPoolBuilder::new();
 
-        if let Some(n_jobs) = self.random_forest_parameters.n_jobs {
+        // If n_jobs = 1 or None, use a single process. If n_jobs = -1, use all processes.
+        let n_jobs_usize = match self.random_forest_parameters.n_jobs {
+            Some(n_jobs) => {
+                if n_jobs >= 1 {
+                    Some(n_jobs as usize)
+                } else {
+                    None
+                }
+            }
+            None => Some(1),
+        };
+
+        if let Some(n_jobs) = n_jobs_usize {
             thread_pool_builder = thread_pool_builder.num_threads(n_jobs);
         }
 
@@ -135,7 +151,7 @@ impl RandomForest {
         });
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
-        let seeds: Vec<u64> = (0..self.random_forest_parameters.n_trees)
+        let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
             .into_iter()
             .map(|_| rng.gen())
             .collect();
@@ -149,7 +165,7 @@ impl RandomForest {
                         self.random_forest_parameters
                             .decision_tree_parameters
                             .clone()
-                            .with_seed(seed),
+                            .with_random_state(seed),
                     );
 
                     let weights = sample_weights(X.nrows(), &mut rng);
@@ -174,7 +190,19 @@ impl RandomForest {
     pub fn fit_predict_oob(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) -> Array1<f64> {
         let mut thread_pool_builder = ThreadPoolBuilder::new();
 
-        if let Some(n_jobs) = self.random_forest_parameters.n_jobs {
+        // If n_jobs = 1 or None, use a single process. If n_jobs = -1, use all processes.
+        let n_jobs_usize = match self.random_forest_parameters.n_jobs {
+            Some(n_jobs) => {
+                if n_jobs >= 1 {
+                    Some(n_jobs as usize)
+                } else {
+                    None
+                }
+            }
+            None => Some(1),
+        };
+
+        if let Some(n_jobs) = n_jobs_usize {
             thread_pool_builder = thread_pool_builder.num_threads(n_jobs);
         }
 
@@ -183,7 +211,7 @@ impl RandomForest {
         let indices: Vec<usize> = (0..X.ncols()).collect();
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
-        let seeds: Vec<u64> = (0..self.random_forest_parameters.n_trees)
+        let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
             .into_iter()
             .map(|_| rng.gen())
             .collect();
@@ -203,7 +231,8 @@ impl RandomForest {
                 .into_par_iter()
                 .map(move |seed| {
                     let mut rng = StdRng::seed_from_u64(seed);
-                    let mut tree = DecisionTree::new(tree_parameters.clone().with_seed(rng.gen()));
+                    let mut tree =
+                        DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen()));
 
                     let weights = sample_weights(X.nrows(), &mut rng);
                     let mut samples = sample_indices_from_weights(&weights, &indices);
@@ -224,17 +253,17 @@ impl RandomForest {
         });
 
         let mut oob_predictions: Array1<f64> = Array1::zeros(X.nrows());
-        let mut oob_n_trees: Array1<usize> = Array1::zeros(X.nrows());
+        let mut oob_n_estimators: Array1<usize> = Array1::zeros(X.nrows());
 
         for (tree, oob_samples, oob_predictions_) in result {
             self.trees.push(tree);
             for (idx, prediction) in oob_samples.into_iter().zip(oob_predictions_.into_iter()) {
                 oob_predictions[idx] += prediction;
-                oob_n_trees[idx] += 1;
+                oob_n_estimators[idx] += 1;
             }
         }
 
-        oob_predictions * oob_n_trees.mapv(|x| 1. / x as f64)
+        oob_predictions * oob_n_estimators.mapv(|x| 1. / x as f64)
     }
 }
 

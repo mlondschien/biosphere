@@ -5,7 +5,7 @@ authors = ["Malte Londschien <malte@londschien.ch>"]
 repository = "https://github.com/mlondschien/biosphere/"
 readme = "README.md"
 license = "BSD-3-Clause"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yaml", ".gitignore"]
 
@@ -23,7 +23,7 @@ debug = true
 lto = "fat"
 
 [dev-dependencies]
-rstest = "0.12"
+rstest = "0.13"
 ndarray-rand = "0.14"
 csv = "^1"
 ndarray-csv = "^0.5"

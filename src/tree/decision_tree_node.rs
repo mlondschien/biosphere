@@ -58,10 +58,8 @@ impl DecisionTreeNode {
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
             // Note that we continue splitting until at least on non-constant feature
             // was evaluated.
-            if let Some(mtry) = parameters.mtry {
-                if feature_idx >= mtry && best_gain > 0. {
-                    break;
-                }
+            if feature_idx >= parameters.max_features.from_n_features(X.ncols()) && best_gain > 0. {
+                break;
             }
 
             if constant_features[feature] {
@@ -152,7 +150,7 @@ impl DecisionTreeNode {
         let mut left_sum: f64 = 0.;
 
         for s in 1..samples.len() {
-            assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
+            debug_assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
 
             cumsum += y[samples[s - 1]];
 
