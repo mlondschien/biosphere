@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 name = "biosphere"
 
 [dependencies]
-numpy = "0.15"
+numpy = "0.16"
 biosphere = { path = "../" }
 ndarray = "0.15"
-pyo3 = {version = "0.15", features = ["extension-module"]}
+pyo3 = {version = "0.16", features = ["extension-module"]}
