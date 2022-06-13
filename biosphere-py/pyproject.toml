@@ -43,7 +43,7 @@ environment = { PATH="$PATH:$HOME/.cargo/bin" }
 
 [tool.cibuildwheel.linux]
 # Install rust in container before building wheels.
-before-all = "curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y && yum install -y openssl-devel"
+before-all = "pip install pip==22.0 && curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y && yum install -y openssl-devel"
 
 [[tool.cibuildwheel.overrides]]
 # No yum on musllinux container.
