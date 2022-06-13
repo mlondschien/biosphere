@@ -63,7 +63,7 @@ jobs:
       
       - name: Install cibuildwheel
         run: |
-          pip install cibuildwheel==2.5.0
+          pip install cibuildwheel
       - name: Build wheels
         run: |
           python -m cibuildwheel biosphere-py --archs ${{ matrix.vers }} --output-dir wheelhouse
