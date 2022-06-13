@@ -39,7 +39,7 @@ test-skip = "*-macosx_arm64 *-macosx_universal2:arm64"
 skip = "cp36-* pp*-macosx* pp* *-musllinux*"
 
 # Add cargobin to PATH. This is otherwise achieved by restarting the shellThis 
-environment = { PATH="$PATH:$HOME/.cargo/bin" }
+environment = { PATH="$PATH:$HOME/.cargo/bin", CARGO_LOG=cargo::ops::registry=debug, CARGO_HTTP_DEBUG=true }
 
 [tool.cibuildwheel.linux]
 # Install rust in container before building wheels.
