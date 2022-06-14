@@ -46,18 +46,18 @@ jobs:
       # on GH actions. It's slow. See
       # https://github.com/docker/setup-qemu-action/issues/22 and
       # https://github.com/pypa/cibuildwheel/issues/598
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: arm64
+      # - name: Set up QEMU
+      #   if: runner.os == 'Linux'
+      #   uses: docker/setup-qemu-action@v2
+      #   with:
+      #     platforms: arm64
 
       - name: Install darwin target for apple silicon
         if: matrix.vers == 'universal2'
         run: rustup target add aarch64-apple-darwin
 
       - name: Setup env when not using docker
-        if: runner.os != 'Linux'
+        # if: runner.os != 'Linux'
         run: |
           python -m pip install --upgrade wheel setuptools setuptools-rust
 
