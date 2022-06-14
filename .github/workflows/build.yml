@@ -61,21 +61,21 @@ jobs:
         run: |
           python -m pip install --upgrade wheel setuptools setuptools-rust
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.6.1
-        with:
-          package-dir: 'biosphere-py'
-        env:
-          # configure cibuildwheel to build native archs ('auto'), and some
-          # emulated ones
-          CIBW_ARCHS_LINUX: ${{ matrix.vers }}
-
-      # - name: Install cibuildwheel
-      #   run: |
-      #     pip install cibuildwheel
       # - name: Build wheels
-      #   run: |
-      #     python -m cibuildwheel biosphere-py --archs ${{ matrix.vers }} --output-dir wheelhouse
+      #   uses: pypa/cibuildwheel@v2.6.1
+      #   with:
+      #     package-dir: 'biosphere-py'
+      #   env:
+      #     # configure cibuildwheel to build native archs ('auto'), and some
+      #     # emulated ones
+      #     CIBW_ARCHS_LINUX: ${{ matrix.vers }}
+
+      - name: Install cibuildwheel
+        run: |
+          pip install cibuildwheel
+      - name: Build wheels
+        run: |
+          python -m cibuildwheel biosphere-py --archs ${{ matrix.vers }} --output-dir wheelhouse
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
