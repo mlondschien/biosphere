@@ -46,11 +46,11 @@ jobs:
       # on GH actions. It's slow. See
       # https://github.com/docker/setup-qemu-action/issues/22 and
       # https://github.com/pypa/cibuildwheel/issues/598
-      # - name: Set up QEMU
-      #   if: runner.os == 'Linux'
-      #   uses: docker/setup-qemu-action@v2
-      #   with:
-      #     platforms: arm64
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
 
       - name: Install darwin target for apple silicon
         if: matrix.vers == 'universal2'
@@ -69,6 +69,15 @@ jobs:
       #     # configure cibuildwheel to build native archs ('auto'), and some
       #     # emulated ones
       #     CIBW_ARCHS_LINUX: ${{ matrix.vers }}
+
+      - name: Debug Info
+        run: |
+          cargo build
+
+      - name: Debug Info 2
+        run: |
+          cd biosphere-py && cargo build
+          
 
       - name: Install cibuildwheel
         run: |
