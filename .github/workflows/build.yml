@@ -85,7 +85,7 @@ jobs:
         
       - name: Clear cargo registry case
         run: |
-          rm -rf ${HOME}/.cargo/registry/*
+          rm -rf ${HOME}/.cargo/registry/*  && export CARGO_LOG=trace
 
       - name: Build wheels
         run: |
