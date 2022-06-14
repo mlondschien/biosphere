@@ -70,18 +70,23 @@ jobs:
       #     # emulated ones
       #     CIBW_ARCHS_LINUX: ${{ matrix.vers }}
 
-      - name: Debug Info
-        run: |
-          cargo build
+      # - name: Debug Info
+      #   run: |
+      #     cargo build
 
-      - name: Debug Info 2
-        run: |
-          cd biosphere-py && cargo build
+      # - name: Debug Info 2
+      #   run: |
+      #     cd biosphere-py && cargo build
           
 
       - name: Install cibuildwheel
         run: |
           pip install cibuildwheel
+        
+      - name: Clear cargo registry case
+        run: |
+          rm -rf ${HOME}/.cargo/registry/*
+
       - name: Build wheels
         run: |
           python -m cibuildwheel biosphere-py --archs ${{ matrix.vers }} --output-dir wheelhouse
