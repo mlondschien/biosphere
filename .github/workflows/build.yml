@@ -19,8 +19,8 @@ jobs:
       matrix:
         include:  # https://cibuildwheel.readthedocs.io/en/stable/options/#archs
 
-          - vers: aarch64
-            os: ubuntu-20.04
+          # - vers: aarch64
+          #   os: ubuntu-20.04
           - vers: x86_64
             os: ubuntu-20.04
 

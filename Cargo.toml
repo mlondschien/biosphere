@@ -23,7 +23,7 @@ debug = true
 lto = "fat"
 
 [dev-dependencies]
-rstest = "0.13"
+rstest = "0.15"
 ndarray-rand = "0.14"
 csv = "^1"
 ndarray-csv = "^0.5"
