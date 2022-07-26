@@ -12,7 +12,7 @@ classifiers = [
 ]
 
 [build-system]
-requires = ["maturin>=0.11,<0.12"]
+requires = ["maturin>=0.12,<0.13"]
 build-backend = "maturin"
 
 [tool.isort]
@@ -39,16 +39,22 @@ test-skip = "*-macosx_arm64 *-macosx_universal2:arm64"
 skip = "cp36-* pp*-macosx* pp* *-musllinux*"
 
 # Add cargobin to PATH. This is otherwise achieved by restarting the shellThis 
-# See https://github.com/pypa/pip/issues/7555 for PIP_USE_FEATURE=in-tree-build.
-# This enables relative paths, e.g. in the Cargo.toml.
 environment = { PATH="$PATH:$HOME/.cargo/bin" }
 
 [tool.cibuildwheel.linux]
 # Install rust in container before building wheels.
-before-all = "curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y && yum install -y openssl-devel"
+before-all = "pip install pip==22.0 && curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y && yum install -y openssl-devel"
 
-[[tool.cibuildwheel.overrides]]
+#[[tool.cibuildwheel.overrides]]
 # No yum on musllinux container.
 # What is musllinux?
-select = "*-musllinux*"
-before-all = "apk add openssl-dev && curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y"
+#select = "*-musllinux*"
+#before-all = "apk add openssl-dev && curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y"
+
+#[[tool.cibuildwheel.overrides]]
+# No yum on musllinux container.
+# What is musllinux?
+# select = "*aarch64*"
+# before-all = "pip install pip==22.0 && curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y && yum install -y openssl-devel && apt install -y g++-aarch64-linux-gnu libc6-dev-arm64-cross && rustup target add aarch64-unknown-linux-gnu && rustup toolchain install stable-aarch64-unknown-linux-gnu"
+# environment = { PATH="$PATH:$HOME/.cargo/bin" }
+# , CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc, CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc, CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ }
