@@ -10,7 +10,7 @@ pub struct DecisionTree {
     node: DecisionTreeNode,
 }
 
-impl<'a> DecisionTree {
+impl DecisionTree {
     pub fn new(decision_tree_parameters: DecisionTreeParameters) -> Self {
         DecisionTree {
             decision_tree_parameters,
