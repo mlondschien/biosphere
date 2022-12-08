@@ -126,7 +126,7 @@ jobs:
           name: wheels
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.5.1
+      - uses: pypa/gh-action-pypi-publish@v1.6.4
         with:
           user: __token__
           password: ${{ secrets.TESTPYPI_GH_TOKEN }}
@@ -142,7 +142,7 @@ jobs:
           name: wheels
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.5.1
+      - uses: pypa/gh-action-pypi-publish@v1.6.4
         with:
           user: __token__
           password: ${{ secrets.PYPI_GH_TOKEN }}
