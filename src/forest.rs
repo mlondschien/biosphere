@@ -109,12 +109,6 @@ impl Default for RandomForest {
 
 impl RandomForest {
     pub fn new(random_forest_parameters: RandomForestParameters) -> Self {
-        // monkey debugging
-        println!(
-            "initializing RandomForest with the following parameters: {:?}",
-            random_forest_parameters
-        );
-
         RandomForest {
             random_forest_parameters,
             trees: Vec::new(),
@@ -232,9 +226,8 @@ impl RandomForest {
             .clone();
 
         let result: Vec<(DecisionTree, Vec<usize>, Vec<f64>)> = thread_pool.scope(move |_| {
-            println!("indices: {:?}", indices);
             let indices: Vec<Vec<usize>> = indices
-                .into_iter()
+                .into_par_iter()
                 .map(|idx| argsort(&X.column(idx)))
                 .collect();
 
@@ -246,13 +239,6 @@ impl RandomForest {
                     let mut rng = StdRng::seed_from_u64(seed);
                     let mut tree =
                         DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen()));
-
-                    println!(" ");
-
-                    // for idx in 0 .. 10 {
-                    //     let s: u64 = rng.gen_range(0 .. X.nrows() as u64);
-                    //     println!("sampling seed: {}, result= {}", seed, s);
-                    // }
 
                     let weights = sample_weights(X.nrows(), &mut rng);
                     println!("weights: {:?}", weights);
