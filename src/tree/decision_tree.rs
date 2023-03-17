@@ -10,16 +10,18 @@ pub struct DecisionTree {
     node: DecisionTreeNode,
 }
 
+impl Default for DecisionTree {
+    fn default() -> Self {
+        DecisionTree::new(DecisionTreeParameters::default())
+    }
+}
+
 impl DecisionTree {
     pub fn new(decision_tree_parameters: DecisionTreeParameters) -> Self {
         DecisionTree {
             decision_tree_parameters,
             node: DecisionTreeNode::default(),
         }
-    }
-
-    pub fn default() -> Self {
-        DecisionTree::new(DecisionTreeParameters::default())
     }
 
     pub fn fit_with_samples(

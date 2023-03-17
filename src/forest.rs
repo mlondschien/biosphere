@@ -9,7 +9,7 @@ use rand::SeedableRng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::ThreadPoolBuilder;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RandomForestParameters {
     decision_tree_parameters: DecisionTreeParameters,
     n_estimators: usize,
@@ -17,6 +17,17 @@ pub struct RandomForestParameters {
     // The number of jobs to run in parallel for `fit` and `fit_predict_oob`.
     // `None` means 1. `-1` means using all processors.
     n_jobs: Option<i32>,
+}
+
+impl Default for RandomForestParameters {
+    fn default() -> Self {
+        RandomForestParameters {
+            decision_tree_parameters: DecisionTreeParameters::default(),
+            n_estimators: 100,
+            seed: 0,
+            n_jobs: None,
+        }
+    }
 }
 
 impl RandomForestParameters {
@@ -40,15 +51,6 @@ impl RandomForestParameters {
             n_estimators,
             seed,
             n_jobs,
-        }
-    }
-
-    pub fn default() -> Self {
-        RandomForestParameters {
-            decision_tree_parameters: DecisionTreeParameters::default(),
-            n_estimators: 100,
-            seed: 0,
-            n_jobs: None,
         }
     }
 
@@ -99,16 +101,18 @@ pub struct RandomForest {
     trees: Vec<DecisionTree>,
 }
 
+impl Default for RandomForest {
+    fn default() -> Self {
+        RandomForest::new(RandomForestParameters::default())
+    }
+}
+
 impl RandomForest {
     pub fn new(random_forest_parameters: RandomForestParameters) -> Self {
         RandomForest {
             random_forest_parameters,
             trees: Vec::new(),
         }
-    }
-
-    pub fn default() -> Self {
-        RandomForest::new(RandomForestParameters::default())
     }
 
     pub fn predict(&self, X: &ArrayView2<f64>) -> Array1<f64> {
@@ -152,7 +156,6 @@ impl RandomForest {
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
         let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
-            .into_iter()
             .map(|_| rng.gen())
             .collect();
 
@@ -212,7 +215,6 @@ impl RandomForest {
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
         let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
-            .into_iter()
             .map(|_| rng.gen())
             .collect();
 
