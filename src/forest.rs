@@ -9,7 +9,7 @@ use rand::SeedableRng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::ThreadPoolBuilder;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RandomForestParameters {
     decision_tree_parameters: DecisionTreeParameters,
     n_estimators: usize,
@@ -17,6 +17,17 @@ pub struct RandomForestParameters {
     // The number of jobs to run in parallel for `fit` and `fit_predict_oob`.
     // `None` means 1. `-1` means using all processors.
     n_jobs: Option<i32>,
+}
+
+impl Default for RandomForestParameters {
+    fn default() -> Self {
+        RandomForestParameters {
+            decision_tree_parameters: DecisionTreeParameters::default(),
+            n_estimators: 100,
+            seed: 0,
+            n_jobs: None,
+        }
+    }
 }
 
 impl RandomForestParameters {
@@ -40,15 +51,6 @@ impl RandomForestParameters {
             n_estimators,
             seed,
             n_jobs,
-        }
-    }
-
-    pub fn default() -> Self {
-        RandomForestParameters {
-            decision_tree_parameters: DecisionTreeParameters::default(),
-            n_estimators: 100,
-            seed: 0,
-            n_jobs: None,
         }
     }
 
@@ -99,16 +101,24 @@ pub struct RandomForest {
     trees: Vec<DecisionTree>,
 }
 
+impl Default for RandomForest {
+    fn default() -> Self {
+        RandomForest::new(RandomForestParameters::default())
+    }
+}
+
 impl RandomForest {
     pub fn new(random_forest_parameters: RandomForestParameters) -> Self {
+        // monkey debugging
+        println!(
+            "initializing RandomForest with the following parameters: {:?}",
+            random_forest_parameters
+        );
+
         RandomForest {
             random_forest_parameters,
             trees: Vec::new(),
         }
-    }
-
-    pub fn default() -> Self {
-        RandomForest::new(RandomForestParameters::default())
     }
 
     pub fn predict(&self, X: &ArrayView2<f64>) -> Array1<f64> {
@@ -222,10 +232,13 @@ impl RandomForest {
             .clone();
 
         let result: Vec<(DecisionTree, Vec<usize>, Vec<f64>)> = thread_pool.scope(move |_| {
+            println!("indices: {:?}", indices);
             let indices: Vec<Vec<usize>> = indices
-                .into_par_iter()
+                .into_iter()
                 .map(|idx| argsort(&X.column(idx)))
                 .collect();
+
+            println!("indices: {:?}", indices);
 
             seeds
                 .into_par_iter()
@@ -234,7 +247,16 @@ impl RandomForest {
                     let mut tree =
                         DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen()));
 
+                    println!(" ");
+
+                    // for idx in 0 .. 10 {
+                    //     let s: u64 = rng.gen_range(0 .. X.nrows() as u64);
+                    //     println!("sampling seed: {}, result= {}", seed, s);
+                    // }
+
                     let weights = sample_weights(X.nrows(), &mut rng);
+                    println!("weights: {:?}", weights);
+
                     let mut samples = sample_indices_from_weights(&weights, &indices);
                     let oob_samples = oob_samples_from_weights(&weights);
 
