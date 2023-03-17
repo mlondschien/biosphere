@@ -156,7 +156,6 @@ impl RandomForest {
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
         let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
-            .into_iter()
             .map(|_| rng.gen())
             .collect();
 
@@ -216,7 +215,6 @@ impl RandomForest {
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
         let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
-            .into_iter()
             .map(|_| rng.gen())
             .collect();
 

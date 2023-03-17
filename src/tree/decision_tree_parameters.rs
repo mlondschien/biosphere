@@ -1,6 +1,7 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum MaxFeatures {
     // Consider all `d` features at each split.
+    #[default]
     None,
     // Compute `int(fraction * d)` features at each split.
     Fraction(f64),
@@ -10,12 +11,6 @@ pub enum MaxFeatures {
     Sqrt,
     // Consider `callable(d)` features at each split.
     Callable(fn(usize) -> usize),
-}
-
-impl Default for MaxFeatures {
-    fn default() -> Self {
-        MaxFeatures::None
-    }
 }
 
 impl MaxFeatures {
