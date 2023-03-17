@@ -1,6 +1,7 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum MaxFeatures {
     // Consider all `d` features at each split.
+    #[default]
     None,
     // Compute `int(fraction * d)` features at each split.
     Fraction(f64),
@@ -24,13 +25,9 @@ impl MaxFeatures {
 
         value.max(1).min(n_features)
     }
-
-    pub fn default() -> MaxFeatures {
-        MaxFeatures::None
-    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree. If `None`, nodes are expanded until all leaves are
     // pure or contain fewer than `min_samples_split` samples.
@@ -45,8 +42,8 @@ pub struct DecisionTreeParameters {
     pub random_state: u64,
 }
 
-impl DecisionTreeParameters {
-    pub fn default() -> Self {
+impl Default for DecisionTreeParameters {
+    fn default() -> Self {
         DecisionTreeParameters {
             max_depth: None,
             max_features: MaxFeatures::default(),
@@ -55,7 +52,9 @@ impl DecisionTreeParameters {
             random_state: 0,
         }
     }
+}
 
+impl DecisionTreeParameters {
     pub fn new(
         max_depth: Option<usize>,
         max_features: MaxFeatures,
