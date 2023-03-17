@@ -42,12 +42,6 @@ impl DecisionTree {
         y: &ArrayView1<f64>,
         samples: Vec<&mut [usize]>,
     ) {
-        // monkey debugging
-        println!(
-            "Fitting a tree with parameters: {:?}, samples: {:?}",
-            self.decision_tree_parameters,
-            samples.iter().take(10).collect::<Vec<_>>()
-        );
         let mut rng = StdRng::seed_from_u64(self.decision_tree_parameters.random_state);
 
         let mut sum = 0.;
