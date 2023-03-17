@@ -241,8 +241,6 @@ impl RandomForest {
                         DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen()));
 
                     let weights = sample_weights(X.nrows(), &mut rng);
-                    println!("weights: {:?}", weights);
-
                     let mut samples = sample_indices_from_weights(&weights, &indices);
                     let oob_samples = oob_samples_from_weights(&weights);
 
