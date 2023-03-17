@@ -231,8 +231,6 @@ impl RandomForest {
                 .map(|idx| argsort(&X.column(idx)))
                 .collect();
 
-            println!("indices: {:?}", indices);
-
             seeds
                 .into_par_iter()
                 .map(move |seed| {
