@@ -24,7 +24,7 @@ lto = "fat"
 
 [dev-dependencies]
 rstest = "0.17"
-ndarray-rand = "0.14"
+ndarray-rand = "0.15"
 csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.4"
