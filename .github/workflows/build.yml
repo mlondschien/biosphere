@@ -58,7 +58,7 @@ jobs:
 
       # https://github.com/pypa/cibuildwheel/issues/563#issuecomment-2257729524
       - name: Set macOS deployment target
-        if: matrix.os == macos-15
+        if: matrix.os == 'macos-15'
         run: echo "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1-2)" >> $GITHUB_ENV
   
       - name: Setup env when not using docker
