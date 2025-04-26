@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 - (2025-04-26)
+
+- **Other changes:**
+    - Updated `ndarray` to 0.16. Thanks @Havunen!
+
 ## 0.3.0 - (2022-03-14)
 
 - **Breaking changes:**
