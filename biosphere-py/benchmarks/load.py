@@ -11,25 +11,17 @@ from sklearn.preprocessing import FunctionTransformer, OneHotEncoder
 DATA_PATH = Path(__file__).resolve().parent / "data"
 NYC_TAXI_DATASET_PATH = DATA_PATH / "nyc_taxi_data.parquet"
 NYC_TAXI_DATASET_URL = (
-    "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2019-01.csv"
+    "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2019-01.parquet"
 )
 NYC_TAXI_BURROWS_PATH = DATA_PATH / "nyc_taxi_burrows.parquet"
-NYC_TAXI_BURROWS_URL = "https://s3.amazonaws.com/nyc-tlc/misc/taxi+_zone_lookup.csv"
+NYC_TAXI_BURROWS_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv"
 
 
 def load_nyc_taxi_raw():
     if NYC_TAXI_DATASET_PATH.exists():
         return pd.read_parquet(NYC_TAXI_DATASET_PATH)
     else:
-        df = pd.read_csv(
-            NYC_TAXI_DATASET_URL,
-            dtype={"store_and_fwd_flag": "bool"},
-            parse_dates=["tpep_pickup_datetime", "tpep_dropoff_datetime"],
-            index_col=False,
-            infer_datetime_format=True,
-            true_values=["Y"],
-            false_values=["N"],
-        )
+        df = pd.read_parquet(NYC_TAXI_DATASET_URL)
         df.to_parquet(NYC_TAXI_DATASET_PATH)
         return df
 
