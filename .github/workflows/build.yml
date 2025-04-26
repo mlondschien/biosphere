@@ -25,11 +25,11 @@ jobs:
             os: ubuntu-22.04
 
           - vers: arm64
-            os: macos-12
+            os: macos-15
           - vers: x86_64
-            os: macos-12
+            os: macos-15
           - vers: universal2
-            os: macos-12
+            os: macos-15
 
           - vers: AMD64
             os: windows-2022
