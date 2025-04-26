@@ -116,6 +116,11 @@ jobs:
     needs: [python-build-wheels, python-build-sdist, upload-testpypi]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
+    environment:
+      name: test_release
+      url: https://test.pypi.org/p/biosphere
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -127,6 +132,11 @@ jobs:
   release-crates-io:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
+    environment:
+      name: release
+      url: https://pypi.org/p/biosphere
+    permissions:
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - run: cargo login ${CRATES_IO_TOKEN}
