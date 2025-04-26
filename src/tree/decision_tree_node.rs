@@ -439,8 +439,8 @@ mod tests {
         assert!(right.len() == d);
 
         for (feature, (l, r)) in left.into_iter().zip(right).enumerate().skip(1) {
-            assert!(is_sorted(&X.column(feature).select(Axis(0), &l)));
-            assert!(is_sorted(&X.column(feature).select(Axis(0), &r)));
+            assert!(is_sorted(&X.column(feature).select(Axis(0), l)));
+            assert!(is_sorted(&X.column(feature).select(Axis(0), r)));
 
             for idx in l.iter() {
                 assert!(X[[*idx, best_feature]] <= best_split_val);

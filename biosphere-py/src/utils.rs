@@ -15,17 +15,17 @@ impl PyMaxFeatures {
     }
 }
 
-impl FromPyObject<'_> for PyMaxFeatures {
-    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
-        if let Ok(value) = ob.extract::<usize>() {
+impl<'source> FromPyObject<'source> for PyMaxFeatures {
+    fn extract_bound(ob: &pyo3::Bound<'source, PyAny>) -> PyResult<Self> {
+        if let Ok(value) = usize::extract_bound(ob) {
             Ok(PyMaxFeatures {
                 value: MaxFeatures::Value(value),
             })
-        } else if let Ok(value) = ob.extract::<f64>() {
+        } else if let Ok(value) = f64::extract_bound(ob) {
             Ok(PyMaxFeatures {
                 value: MaxFeatures::Fraction(value),
             })
-        } else if let Ok(value) = ob.extract::<Option<String>>() {
+        } else if let Ok(value) = Option::<String>::extract_bound(ob) {
             if value.is_none() {
                 Ok(PyMaxFeatures {
                     value: MaxFeatures::None,
@@ -37,21 +37,19 @@ impl FromPyObject<'_> for PyMaxFeatures {
                     })
                 } else {
                     Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                        "Unknown value for max_features: {}",
-                        ob
+                        "Unknown value for max_features: {:?}",
+                        value
                     )))
                 }
             } else {
-                Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                    "Unknown value for max_features: {}",
-                    ob
-                )))
+                Err(PyErr::new::<exceptions::PyTypeError, _>(
+                    "Unknown value for max_features (null option)".to_string()
+                ))
             }
         } else {
-            Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                "Unknown value for max_features: {}",
-                ob
-            )))
+            Err(PyErr::new::<exceptions::PyTypeError, _>(
+                "Unknown value for max_features (invalid type)".to_string()
+            ))
         }
     }
 }
