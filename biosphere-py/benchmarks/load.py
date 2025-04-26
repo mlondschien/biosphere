@@ -14,7 +14,7 @@ NYC_TAXI_DATASET_URL = (
     "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2019-01.parquet"
 )
 NYC_TAXI_BURROWS_PATH = DATA_PATH / "nyc_taxi_burrows.parquet"
-NYC_TAXI_BURROWS_URL = "https://s3.amazonaws.com/nyc-tlc/misc/taxi+_zone_lookup.csv"
+NYC_TAXI_BURROWS_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv"
 
 
 def load_nyc_taxi_raw():
