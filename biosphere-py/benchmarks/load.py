@@ -11,7 +11,7 @@ from sklearn.preprocessing import FunctionTransformer, OneHotEncoder
 DATA_PATH = Path(__file__).resolve().parent / "data"
 NYC_TAXI_DATASET_PATH = DATA_PATH / "nyc_taxi_data.parquet"
 NYC_TAXI_DATASET_URL = (
-    "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2019-01.csv"
+    "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2019-01.parquet"
 )
 NYC_TAXI_BURROWS_PATH = DATA_PATH / "nyc_taxi_burrows.parquet"
 NYC_TAXI_BURROWS_URL = "https://s3.amazonaws.com/nyc-tlc/misc/taxi+_zone_lookup.csv"
