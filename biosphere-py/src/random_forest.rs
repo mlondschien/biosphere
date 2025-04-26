@@ -3,7 +3,7 @@ use biosphere::RandomForest as BioForest;
 use biosphere::RandomForestParameters;
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
 use pyo3::prelude::{PyResult, Python};
-use pyo3::proc_macro::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, Bound};
 
 #[pyclass]
 #[repr(transparent)]
@@ -14,15 +14,15 @@ pub struct RandomForest {
 #[pymethods]
 impl RandomForest {
     #[new]
-    #[args(
+    #[pyo3(signature = (
         n_estimators = 100,
         max_depth = 4,
-        max_features = "PyMaxFeatures::default()",
+        max_features = PyMaxFeatures::default(),
         min_samples_split = 2,
         min_samples_leaf = 1,
         random_state = 0,
-        n_jobs = "None"
-    )]
+        n_jobs = None
+    ))]
     pub fn __init__(
         n_estimators: usize,
         max_depth: Option<usize>,
@@ -55,7 +55,7 @@ impl RandomForest {
     }
 
     #[allow(non_snake_case)]
-    pub fn predict<'py>(&self, py: Python<'py>, X: PyReadonlyArray2<f64>) -> &'py PyArray1<f64> {
+    pub fn predict<'py>(&self, py: Python<'py>, X: PyReadonlyArray2<f64>) -> Bound<'py, PyArray1<f64>>{
         let X_array = X.as_array();
         self.forest.predict(&X_array).to_pyarray(py)
     }
@@ -66,7 +66,7 @@ impl RandomForest {
         py: Python<'py>,
         X: PyReadonlyArray2<f64>,
         y: PyReadonlyArray1<f64>,
-    ) -> &'py PyArray1<f64> {
+    ) -> Bound<'py, PyArray1<f64>> {
         let X_array = X.as_array();
         let y_array = y.as_array();
         self.forest
