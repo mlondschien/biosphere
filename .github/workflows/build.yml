@@ -56,6 +56,11 @@ jobs:
         if: matrix.vers == 'universal2'
         run: rustup target add aarch64-apple-darwin
 
+      # https://github.com/pypa/cibuildwheel/issues/563#issuecomment-2257729524
+      - name: Set macOS deployment target
+        if: matrix.os == 'macos-15'
+        run: echo "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1-2)" >> $GITHUB_ENV
+  
       - name: Setup env when not using docker
         if: runner.os != 'Linux'
         run: |
@@ -66,7 +71,7 @@ jobs:
           pip install cibuildwheel
       - name: Build wheels
         run: |
-          python -m cibuildwheel biosphere-py --archs ${{ matrix.vers }} --output-dir wheelhouse
+          python -m cibuildwheel biosphere-py --archs native --output-dir wheelhouse
       - uses: actions/upload-artifact@v4
         with:
           path: ./wheelhouse/*.whl
