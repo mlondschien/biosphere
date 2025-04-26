@@ -21,15 +21,7 @@ def load_nyc_taxi_raw():
     if NYC_TAXI_DATASET_PATH.exists():
         return pd.read_parquet(NYC_TAXI_DATASET_PATH)
     else:
-        df = pd.read_csv(
-            NYC_TAXI_DATASET_URL,
-            dtype={"store_and_fwd_flag": "bool"},
-            parse_dates=["tpep_pickup_datetime", "tpep_dropoff_datetime"],
-            index_col=False,
-            infer_datetime_format=True,
-            true_values=["Y"],
-            false_values=["N"],
-        )
+        df = pd.read_parquet(NYC_TAXI_DATASET_URL)
         df.to_parquet(NYC_TAXI_DATASET_PATH)
         return df
 
