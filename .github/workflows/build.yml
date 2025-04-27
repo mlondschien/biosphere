@@ -113,6 +113,11 @@ jobs:
           pattern: wheels-*
           path: dist
 
+      - name: Flatten dist/ folder
+        run: |
+          find dist -type f -exec mv {} dist/ \;
+          find dist -mindepth 1 -type d -empty -delete
+
       - uses: pypa/gh-action-pypi-publish@db8f07d3871a0a180efa06b95d467625c19d5d5f
         with:
           repository_url: https://test.pypi.org/legacy/
@@ -131,6 +136,11 @@ jobs:
         with:
           pattern: wheels-*
           path: dist
+        
+      - name: Flatten dist/ folder
+        run: |
+          find dist -type f -exec mv {} dist/ \;
+          find dist -mindepth 1 -type d -empty -delete
 
       - uses: pypa/gh-action-pypi-publish@db8f07d3871a0a180efa06b95d467625c19d5d5f
 
