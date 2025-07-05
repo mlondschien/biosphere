@@ -17,7 +17,11 @@ name = "biosphere"
 ndarray = "0.16.1"
 rand = "0.8"
 rayon = "1.10"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]
 
 [profile.bench]
 incremental = true

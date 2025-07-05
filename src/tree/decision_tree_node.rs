@@ -2,13 +2,15 @@ use crate::tree::DecisionTreeParameters;
 use ndarray::{ArrayView1, ArrayView2};
 use rand::seq::SliceRandom;
 use rand::Rng;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::debug_assert;
 
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 static FEATURE_THRESHOLD: f64 = 1e-14;
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default)]
 pub struct DecisionTreeNode {
     pub left_child: Option<Box<DecisionTreeNode>>,
     pub right_child: Option<Box<DecisionTreeNode>>,
