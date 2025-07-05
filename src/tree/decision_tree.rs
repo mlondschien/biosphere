@@ -4,7 +4,9 @@ use crate::utils::sorted_samples;
 use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DecisionTree {
     decision_tree_parameters: DecisionTreeParameters,
     node: DecisionTreeNode,
