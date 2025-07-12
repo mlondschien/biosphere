@@ -44,3 +44,41 @@ def test_tree():
 def test_max_features(max_features):
     _ = RandomForest(max_features=max_features)
     _ = DecisionTree(max_features=max_features)
+
+
+@pytest.mark.skipif(RandomForest.__getstate__ is object.__getstate__, reason="serde feature disabled")
+def test_forest_pickle(tmp_path):
+    data = np.loadtxt(_IRIS_PATH, skiprows=1, delimiter=",", usecols=(0, 1, 2, 3, 4))
+    X = data[:, 0:4]
+    y = data[:, 4]
+
+    forest = RandomForest()
+    forest.fit(X, y)
+    before = forest.predict(X)
+
+    import pickle
+
+    pkl = pickle.dumps(forest)
+    loaded = pickle.loads(pkl)
+    after = loaded.predict(X)
+
+    assert np.allclose(before, after)
+
+
+@pytest.mark.skipif(DecisionTree.__getstate__ is object.__getstate__, reason="serde feature disabled")
+def test_tree_pickle(tmp_path):
+    data = np.loadtxt(_IRIS_PATH, skiprows=1, delimiter=",", usecols=(0, 1, 2, 3, 4))
+    X = data[:, 0:4]
+    y = data[:, 4]
+
+    tree = DecisionTree()
+    tree.fit(X, y)
+    before = tree.predict(X)
+
+    import pickle
+
+    pkl = pickle.dumps(tree)
+    loaded = pickle.loads(pkl)
+    after = loaded.predict(X)
+
+    assert np.allclose(before, after)
