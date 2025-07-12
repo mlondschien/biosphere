@@ -1,3 +1,7 @@
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Default)]
 pub enum MaxFeatures {
     // Consider all `d` features at each split.
@@ -9,7 +13,8 @@ pub enum MaxFeatures {
     Value(usize),
     // Consider `int(sqrt(d))` features at each split.
     Sqrt,
-    // Consider `callable(d)` features at each split.
+    // Consider `callable(d)` features at each split. Skipped in Serialize/Deserialize.
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing))]
     Callable(fn(usize) -> usize),
 }
 
@@ -27,6 +32,7 @@ impl MaxFeatures {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree. If `None`, nodes are expanded until all leaves are
