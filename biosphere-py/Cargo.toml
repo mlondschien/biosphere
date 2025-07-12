@@ -15,3 +15,8 @@ numpy = "0.24"
 biosphere = { path = "../" }
 ndarray = "0.16.1"
 pyo3 = {version = "0.24", features = ["extension-module"]}
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json5 = { version = "0.2", optional = true }
+
+[features]
+serde = ["dep:serde", "dep:serde_json5", "biosphere/serde"]
