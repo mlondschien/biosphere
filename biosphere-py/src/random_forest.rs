@@ -4,8 +4,12 @@ use biosphere::RandomForestParameters;
 use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
 use pyo3::prelude::{PyResult, Python};
 use pyo3::{pyclass, pymethods, Bound};
+#[cfg(feature = "serde")]
+use pyo3::exceptions::PyValueError;
+#[cfg(feature = "serde")]
+use serde_json5;
 
-#[pyclass]
+#[pyclass(module = "biosphere")]
 #[repr(transparent)]
 pub struct RandomForest {
     pub forest: BioForest,
@@ -72,5 +76,18 @@ impl RandomForest {
         self.forest
             .fit_predict_oob(&X_array, &y_array)
             .to_pyarray(py)
+    }
+
+    #[cfg(feature = "serde")]
+    #[pyo3(name = "__getstate__")]
+    fn getstate(&self) -> PyResult<String> {
+        serde_json5::to_string(&self.forest).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[cfg(feature = "serde")]
+    #[pyo3(name = "__setstate__")]
+    fn setstate(&mut self, state: &str) -> PyResult<()> {
+        self.forest = serde_json5::from_str(state).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(())
     }
 }
