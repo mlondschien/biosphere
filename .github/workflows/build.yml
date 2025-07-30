@@ -72,8 +72,6 @@ jobs:
       - name: Build wheels
         run: |
           python -m cibuildwheel biosphere-py --archs native --output-dir wheelhouse
-        env:
-          CIBW_SKIP: "cp314t-win*"
       - uses: actions/upload-artifact@v4
         with:
           path: ./wheelhouse/*.whl
