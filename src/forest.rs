@@ -233,8 +233,9 @@ impl RandomForest {
                 .into_par_iter()
                 .map(move |seed| {
                     let mut rng = StdRng::seed_from_u64(seed);
-                    let mut tree =
-                        DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen::<u64>()));
+                    let mut tree = DecisionTree::new(
+                        tree_parameters.clone().with_random_state(rng.gen::<u64>()),
+                    );
 
                     let weights = sample_weights(X.nrows(), &mut rng);
                     let mut samples = sample_indices_from_weights(&weights, &indices);
