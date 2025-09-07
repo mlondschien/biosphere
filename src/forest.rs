@@ -156,7 +156,7 @@ impl RandomForest {
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
         let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
-            .map(|_| rng.gen())
+            .map(|_| rng.random())
             .collect();
 
         self.trees = thread_pool.install(|| {
@@ -215,7 +215,7 @@ impl RandomForest {
 
         let mut rng = StdRng::seed_from_u64(self.random_forest_parameters.seed);
         let seeds: Vec<u64> = (0..self.random_forest_parameters.n_estimators)
-            .map(|_| rng.gen())
+            .map(|_| rng.random())
             .collect();
 
         let tree_parameters = self
@@ -234,7 +234,7 @@ impl RandomForest {
                 .map(move |seed| {
                     let mut rng = StdRng::seed_from_u64(seed);
                     let mut tree =
-                        DecisionTree::new(tree_parameters.clone().with_random_state(rng.gen()));
+                        DecisionTree::new(tree_parameters.clone().with_random_state(rng.random()));
 
                     let weights = sample_weights(X.nrows(), &mut rng);
                     let mut samples = sample_indices_from_weights(&weights, &indices);
