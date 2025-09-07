@@ -16,7 +16,7 @@ pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
     let mut counts = vec![0; n];
 
     for _ in 0..n {
-        counts[rng.random_range(0..n)] += 1
+        counts[rng.gen_range(0..n)] += 1
     }
 
     counts
