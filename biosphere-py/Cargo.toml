@@ -1,6 +1,6 @@
 [package]
 name = "biosphere_py"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 
 [lib]
@@ -13,5 +13,5 @@ name = "biosphere"
 [dependencies]
 numpy = "0.26"
 biosphere = { path = "../" }
-ndarray = "0.16.1"
+ndarray = "0.16"
 pyo3 = {version = "0.26", features = ["extension-module"]}
