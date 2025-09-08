@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 - (2025-09-08)
+
+- **Other changes:**
+    - Update `maturin`.
+
 ## 0.4.0 - (2025-04-26)
 
 - **Other changes:**
