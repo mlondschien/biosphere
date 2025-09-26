@@ -17,6 +17,11 @@ name = "biosphere"
 ndarray = "0.16.1"
 rand = "0.8"
 rayon = "1.10"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]
 
 [profile.bench]
 incremental = true
@@ -30,6 +35,7 @@ csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.7"
 assert_approx_eq = "1.1"
+serde_json5 = "0.2"
 
 [[bench]]
 name = "bench_utils"
