@@ -5,7 +5,7 @@ authors = ["Malte Londschien <malte@londschien.ch>"]
 repository = "https://github.com/mlondschien/biosphere/"
 readme = "README.md"
 license = "BSD-3-Clause"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yaml", ".gitignore"]
 keywords = ["machine-learning", "random-forest", "decision-tree", "ensemble", "tree"]
@@ -29,11 +29,11 @@ debug = true
 lto = "fat"
 
 [dev-dependencies]
-rstest = "0.25"
+rstest = "0.26"
 ndarray-rand = "0.15"
 csv = "^1"
 ndarray-csv = "^0.5"
-criterion = "0.5"
+criterion = "0.7"
 assert_approx_eq = "1.1"
 serde_json5 = "0.2"
 

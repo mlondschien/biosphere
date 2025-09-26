@@ -2,7 +2,7 @@
 name = "biosphere"
 description = "Simple, fast random forests"
 readme = "README.md"
-version = "0.4.0"
+version = "0.4.1"
 requires-python = ">=3.7"
 author = "Malte Londschien <malte@londschien.ch>"
 urls = {homepage = "https://github.com/mlondschien/biosphere/"}
@@ -12,7 +12,7 @@ classifiers = [
 ]
 
 [build-system]
-requires = ["maturin>=0.11,<0.12"]
+requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.isort]
@@ -36,7 +36,7 @@ test-skip = "*-macosx_arm64 *-macosx_universal2:arm64"
 # fail due to https://github.com/numpy/numpy/issues/15947.
 # What is the difference between cpython and pypi builds?
 # musllinux is sloooow, >1h per build. Why?
-skip = "cp36-* pp*-macosx* pp* *-musllinux*"
+skip = "cp36-* pp*-macosx* pp* *-musllinux* cp314t-win* cp314-win*"
 
 # Add cargobin to PATH. This is otherwise achieved by restarting the shellThis 
 # See https://github.com/pypa/pip/issues/7555 for PIP_USE_FEATURE=in-tree-build.
