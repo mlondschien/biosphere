@@ -14,7 +14,7 @@ keywords = ["machine-learning", "random-forest", "decision-tree", "ensemble", "t
 name = "biosphere"
 
 [dependencies]
-ndarray = "0.16.1"
+ndarray = "0.17.0"
 rand = "0.8"
 rayon = "1.10"
 
