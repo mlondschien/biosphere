@@ -13,5 +13,5 @@ name = "biosphere"
 [dependencies]
 numpy = "0.26"
 biosphere = { path = "../" }
-ndarray = "0.16"
+ndarray = "0.17"
 pyo3 = {version = "0.26", features = ["extension-module"]}
