@@ -14,4 +14,4 @@ name = "biosphere"
 numpy = "0.26"
 biosphere = { path = "../" }
 ndarray = "0.16"
-pyo3 = {version = "0.26", features = ["extension-module"]}
+pyo3 = {version = "0.27", features = ["extension-module"]}
