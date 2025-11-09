@@ -1,7 +1,7 @@
 use crate::utils::PyMaxFeatures;
 use biosphere::RandomForest as BioForest;
 use biosphere::RandomForestParameters;
-use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, ToPyArray};
+use numpy::{PyArray1, PyReadonlyArray1, PyReadonlyArray2, IntoPyArray};
 use pyo3::prelude::{PyResult, Python};
 use pyo3::{pyclass, pymethods, Bound};
 
@@ -57,7 +57,7 @@ impl RandomForest {
     #[allow(non_snake_case)]
     pub fn predict<'py>(&self, py: Python<'py>, X: PyReadonlyArray2<f64>) -> Bound<'py, PyArray1<f64>>{
         let X_array = X.as_array();
-        self.forest.predict(&X_array).to_pyarray(py)
+        self.forest.predict(&X_array).into_pyarray(py)
     }
 
     #[allow(non_snake_case)]
@@ -71,6 +71,6 @@ impl RandomForest {
         let y_array = y.as_array();
         self.forest
             .fit_predict_oob(&X_array, &y_array)
-            .to_pyarray(py)
+            .into_pyarray(py)
     }
 }
