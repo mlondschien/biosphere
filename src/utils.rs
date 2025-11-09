@@ -16,7 +16,7 @@ pub fn sample_weights(n: usize, rng: &mut impl Rng) -> Vec<usize> {
     let mut counts = vec![0; n];
 
     for _ in 0..n {
-        counts[rng.gen_range(0..n)] += 1
+        counts[rng.random_range(0..n)] += 1
     }
 
     counts
@@ -77,7 +77,7 @@ mod tests {
         let seed = 7;
         let mut rng = StdRng::seed_from_u64(seed);
         let n = 100;
-        let x = Array::random_using(n, Uniform::new(0., 1.), &mut rng);
+        let x = Array::random_using(n, Uniform::new(0., 1.).unwrap(), &mut rng);
 
         let indices = argsort(&x);
         assert!(is_sorted(&x.select(Axis(0), &indices)));
@@ -101,7 +101,7 @@ mod tests {
         let n = 100;
         let d = 8;
 
-        let X = Array::random_using((n, d), Uniform::new(0., 1.), &mut rng);
+        let X = Array::random_using((n, d), Uniform::new(0., 1.).unwrap(), &mut rng);
 
         let indices: Vec<Vec<usize>> = (0..d).map(|idx| argsort(&X.column(idx))).collect();
         let weights = sample_weights(n, &mut rng);

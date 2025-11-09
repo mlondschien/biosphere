@@ -15,17 +15,19 @@ impl PyMaxFeatures {
     }
 }
 
-impl<'source> FromPyObject<'source> for PyMaxFeatures {
-    fn extract_bound(ob: &pyo3::Bound<'source, PyAny>) -> PyResult<Self> {
-        if let Ok(value) = usize::extract_bound(ob) {
+impl<'py> FromPyObject<'_, 'py> for PyMaxFeatures {
+    type Error = PyErr;
+
+    fn extract(ob: pyo3::Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(value) = ob.extract::<usize>() {
             Ok(PyMaxFeatures {
                 value: MaxFeatures::Value(value),
             })
-        } else if let Ok(value) = f64::extract_bound(ob) {
+        } else if let Ok(value) = ob.extract::<f64>() {
             Ok(PyMaxFeatures {
                 value: MaxFeatures::Fraction(value),
             })
-        } else if let Ok(value) = Option::<String>::extract_bound(ob) {
+        } else if let Ok(value) = ob.extract::<Option<String>>() {
             if value.is_none() {
                 Ok(PyMaxFeatures {
                     value: MaxFeatures::None,

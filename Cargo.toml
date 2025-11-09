@@ -14,8 +14,8 @@ keywords = ["machine-learning", "random-forest", "decision-tree", "ensemble", "t
 name = "biosphere"
 
 [dependencies]
-ndarray = "0.16.1"
-rand = "0.8"
+ndarray = "0.17.1"
+rand = "0.9"
 rayon = "1.10"
 
 [profile.bench]
@@ -25,11 +25,14 @@ lto = "fat"
 
 [dev-dependencies]
 rstest = "0.26"
-ndarray-rand = "0.15"
+ndarray-rand = "0.16.0"
 csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.7"
 assert_approx_eq = "1.1"
+
+[patch.crates-io]
+ndarray-csv = { path = "vendor/ndarray-csv" }
 
 [[bench]]
 name = "bench_utils"

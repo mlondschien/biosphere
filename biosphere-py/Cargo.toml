@@ -11,7 +11,10 @@ crate-type = ["cdylib"]
 name = "biosphere"
 
 [dependencies]
-numpy = "0.26"
+numpy = "0.27.0"
 biosphere = { path = "../" }
-ndarray = "0.16"
-pyo3 = {version = "0.26", features = ["extension-module"]}
+ndarray = "0.17.1"
+pyo3 = {version = "0.27.1", features = ["extension-module"]}
+
+[patch.crates-io]
+numpy = { path = "../vendor/rust-numpy" }
