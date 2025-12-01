@@ -28,7 +28,7 @@ rstest = "0.26"
 ndarray-rand = "0.15"
 csv = "^1"
 ndarray-csv = "^0.5"
-criterion = "0.7"
+criterion = "0.8"
 assert_approx_eq = "1.1"
 
 [[bench]]
