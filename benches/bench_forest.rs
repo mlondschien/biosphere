@@ -15,17 +15,18 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
 
     for i in 0..d {
         if i % 2 == 0 {
-            X.slice_mut(s![.., i])
-                .assign(&Array::random_using((n,), Uniform::new(0., 1.), rng));
+            X.slice_mut(s![.., i]).assign(&Array::random_using(
+                (n,),
+                Uniform::new(0., 1.).unwrap(),
+                rng,
+            ));
         } else {
-            X.slice_mut(s![.., i]).assign(
-                &Array::random_using((n,), Bernoulli::new(0.3).unwrap(), rng)
-                    .mapv(|x| x as i64 as f64),
-            );
+            X.slice_mut(s![.., i])
+                .assign(&Array::random_using((n,), Bernoulli::new(0.3).unwrap(), rng).mapv(|x| if x { 1.0 } else { 0.0 }));
         }
     }
-    let X = Array::random_using((n, d), Uniform::new(0., 1.), rng);
-    let y = Array::random_using(n, Uniform::new(0., 1.), rng);
+    let X = Array::random_using((n, d), Uniform::new(0., 1.).unwrap(), rng);
+    let y = Array::random_using(n, Uniform::new(0., 1.).unwrap(), rng);
     let y = y + X.column(0) + X.column(1).map(|x| x - x * x);
 
     (X, y)
