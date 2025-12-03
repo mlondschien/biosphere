@@ -19,7 +19,13 @@ pub fn benchmark_utils(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("argsort_continuous", size), &x, |b, x| {
             b.iter(|| argsort(x))
         });
-        let y = Array::random_using(size, Bernoulli::new(0.3).unwrap(), &mut rng).mapv(|x| if x { 1.0 } else { 0.0 });
+        let y = Array::random_using(size, Bernoulli::new(0.3).unwrap(), &mut rng).mapv(|x| {
+            if x {
+                1.0
+            } else {
+                0.0
+            }
+        });
         group.bench_with_input(BenchmarkId::new("argsort_one_hot", size), &y, |b, x| {
             b.iter(|| argsort(x))
         });
