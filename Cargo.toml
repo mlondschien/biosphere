@@ -14,9 +14,9 @@ keywords = ["machine-learning", "random-forest", "decision-tree", "ensemble", "t
 name = "biosphere"
 
 [dependencies]
-ndarray = "0.16.1"
-rand = "0.8"
-rayon = "1.10"
+ndarray = "0.17.1"
+rand = "0.9"
+rayon = "1.11"
 
 [profile.bench]
 incremental = true
@@ -25,7 +25,7 @@ lto = "fat"
 
 [dev-dependencies]
 rstest = "0.26"
-ndarray-rand = "0.15"
+ndarray-rand = "0.16"
 csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.8"
