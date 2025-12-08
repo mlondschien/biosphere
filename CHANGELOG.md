@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2 - (2025-12-08)
+
+- **Other changes**:
+    - Updated `ndarray` to 0.17, `rand` to 0.9 and `rayon` to 1.11. Thanks @Havunen!
+ 
 ## 0.4.1 - (2025-09-08)
 
 - **Other changes:**
