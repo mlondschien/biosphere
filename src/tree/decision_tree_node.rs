@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn test_find_trivial_best_split() {
         let mut rng = StdRng::seed_from_u64(0);
-        let X = Array::random_using((100, 1), Uniform::new(0., 1.), &mut rng);
+        let X = Array::random_using((100, 1), Uniform::new(0., 1.).unwrap(), &mut rng);
         let y = Array1::<f64>::zeros(100);
 
         let node = DecisionTreeNode::default();
@@ -406,10 +406,10 @@ mod tests {
         #[case] d: usize,
     ) {
         let mut rng = StdRng::seed_from_u64(0);
-        let X = Array::random_using((100, d), Uniform::new(0., 1.), &mut rng);
+        let X = Array::random_using((100, d), Uniform::new(0., 1.).unwrap(), &mut rng);
 
         let mut single_samples: Vec<usize> =
-            (0..n_samples).map(|_| rng.gen_range(0..100)).collect();
+            (0..n_samples).map(|_| rng.random_range(0..100)).collect();
         single_samples.sort();
         let mut samples = sorted_samples(&X, &single_samples);
 
