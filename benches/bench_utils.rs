@@ -15,12 +15,17 @@ pub fn benchmark_utils(c: &mut Criterion) {
     let sizes: &[usize] = &[100000];
     for &size in sizes.iter() {
         let mut rng = StdRng::seed_from_u64(seed);
-        let x = Array::random_using(size, Uniform::new(0., 1.), &mut rng);
+        let x = Array::random_using(size, Uniform::new(0., 1.).unwrap(), &mut rng);
         group.bench_with_input(BenchmarkId::new("argsort_continuous", size), &x, |b, x| {
             b.iter(|| argsort(x))
         });
-        let y = Array::random_using(size, Bernoulli::new(0.3).unwrap(), &mut rng)
-            .mapv(|x| x as i64 as f64);
+        let y = Array::random_using(size, Bernoulli::new(0.3).unwrap(), &mut rng).mapv(|x| {
+            if x {
+                1.0
+            } else {
+                0.0
+            }
+        });
         group.bench_with_input(BenchmarkId::new("argsort_one_hot", size), &y, |b, x| {
             b.iter(|| argsort(x))
         });
