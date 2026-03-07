@@ -3,6 +3,8 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 use std::debug_assert;
 
+type XySorted<'a> = Vec<&'a mut [(f64, f64, usize)]>;
+
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 static FEATURE_THRESHOLD: f64 = 1e-14;
 
@@ -23,9 +25,9 @@ impl DecisionTreeNode {
     #[allow(clippy::too_many_arguments)]
     pub fn split(
         &mut self,
-        // For each feature f, xy_sorted[f][i] = (X[[row, f]], y[row], row)
-        // in sorted order of feature f.
-        xy_sorted: Vec<&mut [(f64, f64, usize)]>,
+        // For each feature fidx, xy_sorted[fidx][i] = (X[[row, fidx]], y[row], row),
+        // where row = argsort(X.column(fidx))[i]. That is, X[[row, fidx]] is sorted.
+        xy_sorted: XySorted,
         n_samples: usize,
         mut constant_features: Vec<bool>,
         // Used in split_samples. Passed here to avoid reallocating.
@@ -35,13 +37,9 @@ impl DecisionTreeNode {
         current_depth: usize,
         parameters: &DecisionTreeParameters,
     ) {
-        if let Some(depth) = parameters.max_depth {
-            if current_depth >= depth {
-                return self.leaf_node(sum / n_samples as f64);
-            }
-        }
-
-        if n_samples <= parameters.min_samples_split {
+        if parameters.max_depth.is_some_and(|d| current_depth >= d)
+            || n_samples <= parameters.min_samples_split
+        {
             return self.leaf_node(sum / n_samples as f64);
         }
 
@@ -56,8 +54,7 @@ impl DecisionTreeNode {
         feature_order.shuffle(rng);
 
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
-            // Note that we continue splitting until at least one non-constant feature
-            // was evaluated.
+            // We continue splitting until at least one non-constant feature was evaluated.
             if feature_idx >= parameters.max_features.from_n_features(n_features) && best_gain > 0.
             {
                 break;
@@ -86,7 +83,7 @@ impl DecisionTreeNode {
             }
         }
 
-        if best_gain <= MIN_GAIN_TO_SPLIT {
+        if best_gain < MIN_GAIN_TO_SPLIT {
             return self.leaf_node(sum / n_samples as f64);
         }
 
@@ -131,11 +128,7 @@ impl DecisionTreeNode {
     /// Find the best split point. `xy_sorted[i] = (x_val, y_val, row)` are the (x, y, row)
     /// triples for this feature in sorted order of x. Both x and y are read sequentially
     /// with no random memory access.
-    fn find_best_split(
-        &self,
-        xy_sorted: &[(f64, f64, usize)],
-        sum: f64,
-    ) -> (usize, f64, f64, f64) {
+    fn find_best_split(&self, xy_sorted: &[(f64, f64, usize)], sum: f64) -> (usize, f64, f64, f64) {
         let n = xy_sorted.len();
         let mut cumsum = 0.;
         let mut max_proxy_gain = 0.;
@@ -199,23 +192,20 @@ impl DecisionTreeNode {
     /// preserving sorted order within each half.
     fn split_samples<'a>(
         &self,
-        xy_sorted: Vec<&'a mut [(f64, f64, usize)]>,
+        xy_sorted: XySorted<'a>,
         split: usize,
         constant_features: &[bool],
         best_feature: usize,
         all_false: &mut [bool],
-    ) -> (
-        Vec<&'a mut [(f64, f64, usize)]>,
-        Vec<&'a mut [(f64, f64, usize)]>,
-    ) {
+    ) -> (XySorted<'a>, XySorted<'a>) {
         // Mark right-going rows using the row index stored in xy_sorted.
         for (_, _, idx) in xy_sorted[best_feature][split..].iter() {
             all_false[*idx] = true;
         }
 
         let n = xy_sorted[best_feature].len();
-        let mut left_out = Vec::<&mut [(f64, f64, usize)]>::with_capacity(xy_sorted.len());
-        let mut right_out = Vec::<&mut [(f64, f64, usize)]>::with_capacity(xy_sorted.len());
+        let mut left_out = Vec::with_capacity(xy_sorted.len());
+        let mut right_out = Vec::with_capacity(xy_sorted.len());
 
         let mut first_left: &mut [(f64, f64, usize)] = &mut [];
         let mut copy_of_first_right: Vec<(f64, f64, usize)> = Vec::with_capacity(n - split);
