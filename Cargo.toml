@@ -27,7 +27,7 @@ lto = "fat"
 rstest = "0.26"
 ndarray-rand = "0.16"
 csv = "^1"
-ndarray-csv = "^0.5"
+# ndarray-csv = "^0.5"  # removed: ndarray-csv 0.5 uses ndarray 0.16, incompatible with ndarray 0.17
 criterion = "0.8"
 assert_approx_eq = "1.1"
 

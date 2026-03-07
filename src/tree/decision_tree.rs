@@ -52,10 +52,20 @@ impl DecisionTree {
         let n_samples = samples[0].len();
         let mut all_false = vec![false; X.nrows()];
 
+        // Pre-gather (x, y) pairs in sorted order for each feature to enable sequential
+        // memory access in find_best_split instead of random access via y[samples[f][i]].
+        let mut xy_sorted_vecs: Vec<Vec<(f64, f64)>> = samples
+            .iter()
+            .enumerate()
+            .map(|(f, s)| s.iter().map(|&i| (X[[i, f]], y[i])).collect())
+            .collect();
+        let xy_sorted: Vec<&mut [(f64, f64)]> = xy_sorted_vecs
+            .iter_mut()
+            .map(|v| v.as_mut_slice())
+            .collect();
         self.node.split(
-            X,
-            y,
             samples,
+            xy_sorted,
             n_samples,
             vec![false; X.ncols()],
             &mut all_false,
