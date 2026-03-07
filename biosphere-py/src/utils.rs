@@ -45,7 +45,7 @@ impl<'py> FromPyObject<'_, 'py> for PyMaxFeatures {
             }
         } else {
             Err(PyErr::new::<exceptions::PyTypeError, _>(
-                "Unknown value for max_features (invalid type)".to_string()
+                "Unknown value for max_features (invalid type)".to_string(),
             ))
         }
     }

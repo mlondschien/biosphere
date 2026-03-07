@@ -3,8 +3,6 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 use std::debug_assert;
 
-type XySorted<'a> = Vec<&'a mut [(f64, f64, usize)]>;
-
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 static FEATURE_THRESHOLD: f64 = 1e-14;
 
@@ -27,7 +25,7 @@ impl DecisionTreeNode {
         &mut self,
         // For each feature fidx, xy_sorted[fidx][i] = (X[[row, fidx]], y[row], row),
         // where row = argsort(X.column(fidx))[i]. That is, X[[row, fidx]] is sorted.
-        xy_sorted: XySorted,
+        xy_sorted: Vec<&mut [(f64, f64, usize)]>,
         n_samples: usize,
         mut constant_features: Vec<bool>,
         // Used in split_samples. Passed here to avoid reallocating.
@@ -126,8 +124,7 @@ impl DecisionTreeNode {
     }
 
     /// Find the best split point. `xy_sorted[i] = (x_val, y_val, row)` are the (x, y, row)
-    /// triples for this feature in sorted order of x. Both x and y are read sequentially
-    /// with no random memory access.
+    /// triples for this feature in sorted order of x.
     fn find_best_split(&self, xy_sorted: &[(f64, f64, usize)], sum: f64) -> (usize, f64, f64, f64) {
         let n = xy_sorted.len();
         let mut cumsum = 0.;
@@ -192,12 +189,15 @@ impl DecisionTreeNode {
     /// preserving sorted order within each half.
     fn split_samples<'a>(
         &self,
-        xy_sorted: XySorted<'a>,
+        xy_sorted: Vec<&'a mut [(f64, f64, usize)]>,
         split: usize,
         constant_features: &[bool],
         best_feature: usize,
         all_false: &mut [bool],
-    ) -> (XySorted<'a>, XySorted<'a>) {
+    ) -> (
+        Vec<&'a mut [(f64, f64, usize)]>,
+        Vec<&'a mut [(f64, f64, usize)]>,
+    ) {
         // Mark right-going rows using the row index stored in xy_sorted.
         for (_, _, idx) in xy_sorted[best_feature][split..].iter() {
             all_false[*idx] = true;
