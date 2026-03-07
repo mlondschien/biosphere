@@ -32,7 +32,6 @@ impl DecisionTree {
     ) {
         let mut samples = sorted_samples(X, samples);
         let samples_as_slices = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
-
         self.fit_with_sorted_samples(X, y, samples_as_slices);
     }
 
@@ -44,27 +43,24 @@ impl DecisionTree {
     ) {
         let mut rng = StdRng::seed_from_u64(self.decision_tree_parameters.random_state);
 
-        let mut sum = 0.;
-        for s in samples[0].iter() {
-            sum += y[*s];
-        }
-
         let n_samples = samples[0].len();
+        let sum: f64 = samples[0].iter().map(|&i| y[i]).sum();
         let mut all_false = vec![false; X.nrows()];
 
-        // Pre-gather (x, y) pairs in sorted order for each feature to enable sequential
-        // memory access in find_best_split instead of random access via y[samples[f][i]].
-        let mut xy_sorted_vecs: Vec<Vec<(f64, f64)>> = samples
+        // Build (x, y, row) triples in sorted order of each feature from the pre-sorted
+        // sample indices. Sequential layout enables cache-friendly access in find_best_split;
+        // row index enables O(1) all_false lookup in split_samples.
+        let mut xy_sorted_vecs: Vec<Vec<(f64, f64, usize)>> = samples
             .iter()
             .enumerate()
-            .map(|(f, s)| s.iter().map(|&i| (X[[i, f]], y[i])).collect())
+            .map(|(f, s)| s.iter().map(|&i| (X[[i, f]], y[i], i)).collect())
             .collect();
-        let xy_sorted: Vec<&mut [(f64, f64)]> = xy_sorted_vecs
+        let xy_sorted: Vec<&mut [(f64, f64, usize)]> = xy_sorted_vecs
             .iter_mut()
             .map(|v| v.as_mut_slice())
             .collect();
+
         self.node.split(
-            samples,
             xy_sorted,
             n_samples,
             vec![false; X.ncols()],

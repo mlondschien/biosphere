@@ -23,10 +23,9 @@ impl DecisionTreeNode {
     #[allow(clippy::too_many_arguments)]
     pub fn split(
         &mut self,
-        samples: Vec<&mut [usize]>,
-        // For each feature f, xy_sorted[f][i] = (X[[samples[f][i], f]], y[samples[f][i]]),
-        // i.e. the (x, y) pairs gathered in sorted order of feature f.
-        xy_sorted: Vec<&mut [(f64, f64)]>,
+        // For each feature f, xy_sorted[f][i] = (X[[row, f]], y[row], row)
+        // in sorted order of feature f.
+        xy_sorted: Vec<&mut [(f64, f64, usize)]>,
         n_samples: usize,
         mut constant_features: Vec<bool>,
         // Used in split_samples. Passed here to avoid reallocating.
@@ -91,8 +90,7 @@ impl DecisionTreeNode {
             return self.leaf_node(sum / n_samples as f64);
         }
 
-        let (left_samples, right_samples, left_xy_sorted, right_xy_sorted) = self.split_samples(
-            samples,
+        let (left_xy_sorted, right_xy_sorted) = self.split_samples(
             xy_sorted,
             best_split,
             &constant_features,
@@ -102,7 +100,6 @@ impl DecisionTreeNode {
 
         let mut left = DecisionTreeNode::default();
         left.split(
-            left_samples,
             left_xy_sorted,
             best_split,
             constant_features.clone(),
@@ -116,7 +113,6 @@ impl DecisionTreeNode {
 
         let mut right = DecisionTreeNode::default();
         right.split(
-            right_samples,
             right_xy_sorted,
             n_samples - best_split,
             constant_features,
@@ -132,10 +128,14 @@ impl DecisionTreeNode {
         self.feature_value = Some(best_split_val);
     }
 
-    /// Find the best split point. `xy_sorted[i] = (x_val, y_val)` are the (x, y) pairs
-    /// for this feature in sorted order of x. Both values are read sequentially with no
-    /// random memory access.
-    fn find_best_split(&self, xy_sorted: &[(f64, f64)], sum: f64) -> (usize, f64, f64, f64) {
+    /// Find the best split point. `xy_sorted[i] = (x_val, y_val, row)` are the (x, y, row)
+    /// triples for this feature in sorted order of x. Both x and y are read sequentially
+    /// with no random memory access.
+    fn find_best_split(
+        &self,
+        xy_sorted: &[(f64, f64, usize)],
+        sum: f64,
+    ) -> (usize, f64, f64, f64) {
         let n = xy_sorted.len();
         let mut cumsum = 0.;
         let mut max_proxy_gain = 0.;
@@ -144,7 +144,7 @@ impl DecisionTreeNode {
         let mut left_sum: f64 = 0.;
 
         for s in 1..n {
-            let (x_prev, y_prev) = xy_sorted[s - 1];
+            let (x_prev, y_prev, _) = xy_sorted[s - 1];
             let x_cur = xy_sorted[s].0;
 
             debug_assert!(x_cur >= x_prev);
@@ -191,86 +191,61 @@ impl DecisionTreeNode {
         }
     }
 
-    /// Split samples into two, corresponding to observations left / right of the split point.
+    /// Split xy_sorted into left/right halves, maintaining sorted order within each half.
     ///
-    /// `samples` is a vector of slices. For each feature s.t. constant_features[feature]
-    /// is false, samples[feature] are indices s.t. X[samples[feature], feature] is sorted.
-    /// `xy_sorted[feature]` contains (x, y) pairs in that same sorted order.
-    ///
-    /// split_samples takes each of these slices and divides them into left (for indices
-    /// s s.t. X[s, best_feature] <= best_split_val) / right (others), keeping both
-    /// samples and xy_sorted in sync and maintaining sorted order within each half.
+    /// For each feature, xy_sorted[feature] contains (x, y, row) triples sorted by x.
+    /// split_samples partitions each feature's slice so that rows with
+    /// X[row, best_feature] <= best_split_val go left and the rest go right,
+    /// preserving sorted order within each half.
     fn split_samples<'a>(
         &self,
-        samples: Vec<&'a mut [usize]>,
-        xy_sorted: Vec<&'a mut [(f64, f64)]>,
+        xy_sorted: Vec<&'a mut [(f64, f64, usize)]>,
         split: usize,
         constant_features: &[bool],
         best_feature: usize,
-        // best_split_val: f64,
         all_false: &mut [bool],
     ) -> (
-        Vec<&'a mut [usize]>,
-        Vec<&'a mut [usize]>,
-        Vec<&'a mut [(f64, f64)]>,
-        Vec<&'a mut [(f64, f64)]>,
+        Vec<&'a mut [(f64, f64, usize)]>,
+        Vec<&'a mut [(f64, f64, usize)]>,
     ) {
-        // We replace lookups & comparisons X[[idx, best_feature]] > best_split_val
-        // with a lookup all_false[idx]. This is faster. Since best_feature was split
-        // at best_split_val, the comparison holds true exactly for samples after split.
-        for s in samples[best_feature][split..].iter() {
-            all_false[*s] = true;
+        // Mark right-going rows using the row index stored in xy_sorted.
+        for (_, _, idx) in xy_sorted[best_feature][split..].iter() {
+            all_false[*idx] = true;
         }
 
-        let n = samples[best_feature].len();
-        let mut new_samples_left = Vec::<&mut [usize]>::with_capacity(samples.len());
-        let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
-        let mut new_xy_sorted_left = Vec::<&mut [(f64, f64)]>::with_capacity(xy_sorted.len());
-        let mut new_xy_sorted_right = Vec::<&mut [(f64, f64)]>::with_capacity(xy_sorted.len());
+        let n = xy_sorted[best_feature].len();
+        let mut left_out = Vec::<&mut [(f64, f64, usize)]>::with_capacity(xy_sorted.len());
+        let mut right_out = Vec::<&mut [(f64, f64, usize)]>::with_capacity(xy_sorted.len());
 
-        let mut first_left: &mut [usize] = &mut [];
-        let mut first_left_xy: &mut [(f64, f64)] = &mut [];
-        let mut copy_of_first_right: Vec<usize> = Vec::with_capacity(n - split);
-        let mut copy_of_first_right_xy: Vec<(f64, f64)> = Vec::with_capacity(n - split);
+        let mut first_left: &mut [(f64, f64, usize)] = &mut [];
+        let mut copy_of_first_right: Vec<(f64, f64, usize)> = Vec::with_capacity(n - split);
         let mut initialized = false;
         let mut index_of_first: usize = 0;
 
-        let mut new_right: &mut [usize] = &mut [];
-        let mut new_right_xy: &mut [(f64, f64)] = &mut [];
+        let mut right_scratch: &mut [(f64, f64, usize)] = &mut [];
 
         let mut current_left: usize;
         let mut current_right: usize;
 
-        for (feature, (sample_, xy_sorted_)) in
-            samples.into_iter().zip(xy_sorted.into_iter()).enumerate()
-        {
+        for (feature, xy_) in xy_sorted.into_iter().enumerate() {
             if feature == best_feature {
-                let (left, right) = sample_.split_at_mut(split);
-                let (left_xy, right_xy) = xy_sorted_.split_at_mut(split);
-                new_samples_left.push(left);
-                new_samples_right.push(right);
-                new_xy_sorted_left.push(left_xy);
-                new_xy_sorted_right.push(right_xy);
+                let (l, r) = xy_.split_at_mut(split);
+                left_out.push(l);
+                right_out.push(r);
                 continue;
             }
 
             if constant_features[feature] {
-                new_samples_left.push(&mut []);
-                new_samples_right.push(&mut []);
-                new_xy_sorted_left.push(&mut []);
-                new_xy_sorted_right.push(&mut []);
+                left_out.push(&mut []);
+                right_out.push(&mut []);
                 continue;
             }
 
             if !initialized {
-                let result = sample_.split_at_mut(split);
-                let result_xy = xy_sorted_.split_at_mut(split);
-                new_right = result.1;
-                new_right_xy = result_xy.1;
-                copy_of_first_right.extend_from_slice(new_right);
-                copy_of_first_right_xy.extend_from_slice(new_right_xy);
-                first_left = result.0;
-                first_left_xy = result_xy.0;
+                let (l, r) = xy_.split_at_mut(split);
+                right_scratch = r;
+                copy_of_first_right.extend_from_slice(right_scratch);
+                first_left = l;
                 index_of_first = feature;
                 initialized = true;
                 continue;
@@ -280,80 +255,59 @@ impl DecisionTreeNode {
             // Even digits in the example correspond to indices belonging to the right
             // node, odd digits to the left.
 
-            // samples[..current_left) contains (sorted by X) indices belonging
-            // to the left node.
+            // xy_[..current_left) contains (sorted by X) triples belonging to the left node.
             current_left = 0;
             current_right = 0;
 
-            for idx in 0..n {
-                // if X[[sample_[idx], best_feature]] > best_split_val {
-                if all_false[sample_[idx]] {
-                    new_right[current_right] = sample_[idx];
-                    new_right_xy[current_right] = xy_sorted_[idx];
+            for i in 0..n {
+                if all_false[xy_[i].2] {
+                    right_scratch[current_right] = xy_[i];
                     current_right += 1;
                 } else {
-                    sample_[current_left] = sample_[idx];
-                    xy_sorted_[current_left] = xy_sorted_[idx];
+                    xy_[current_left] = xy_[i];
                     current_left += 1;
                 }
             }
 
-            let result = sample_.split_at_mut(split);
-            let result_xy = xy_sorted_.split_at_mut(split);
-            new_samples_left.push(result.0);
-            new_samples_right.push(new_right);
-            new_xy_sorted_left.push(result_xy.0);
-            new_xy_sorted_right.push(new_right_xy);
-            new_right = result.1;
-            new_right_xy = result_xy.1;
+            let (l, r) = xy_.split_at_mut(split);
+            left_out.push(l);
+            right_out.push(right_scratch);
+            right_scratch = r;
         }
 
         if initialized {
             current_left = 0;
             current_right = 0;
 
-            for idx in 0..split {
-                // if X[[first_left[idx], best_feature]] > best_split_val {
-                if all_false[first_left[idx]] {
-                    new_right[current_right] = first_left[idx];
-                    new_right_xy[current_right] = first_left_xy[idx];
+            for i in 0..split {
+                if all_false[first_left[i].2] {
+                    right_scratch[current_right] = first_left[i];
                     current_right += 1;
                 } else {
-                    first_left[current_left] = first_left[idx];
-                    first_left_xy[current_left] = first_left_xy[idx];
+                    first_left[current_left] = first_left[i];
                     current_left += 1;
                 }
             }
 
-            for idx in 0..(n - split) {
-                // if X[[copy_of_first_right[idx], best_feature]] > best_split_val {
-                if all_false[copy_of_first_right[idx]] {
-                    new_right[current_right] = copy_of_first_right[idx];
-                    new_right_xy[current_right] = copy_of_first_right_xy[idx];
+            for i in 0..(n - split) {
+                if all_false[copy_of_first_right[i].2] {
+                    right_scratch[current_right] = copy_of_first_right[i];
                     current_right += 1;
                 } else {
-                    first_left[current_left] = copy_of_first_right[idx];
-                    first_left_xy[current_left] = copy_of_first_right_xy[idx];
+                    first_left[current_left] = copy_of_first_right[i];
                     current_left += 1;
                 }
             }
-            new_samples_left.insert(index_of_first, first_left);
-            new_samples_right.insert(index_of_first, new_right);
-            new_xy_sorted_left.insert(index_of_first, first_left_xy);
-            new_xy_sorted_right.insert(index_of_first, new_right_xy);
+            left_out.insert(index_of_first, first_left);
+            right_out.insert(index_of_first, right_scratch);
         }
 
         // Reset all_false to be all false.
-        for s in new_samples_right[best_feature].iter() {
-            all_false[*s] = false;
+        for (_, _, idx) in right_out[best_feature].iter() {
+            all_false[*idx] = false;
         }
 
-        (
-            new_samples_left,
-            new_samples_right,
-            new_xy_sorted_left,
-            new_xy_sorted_right,
-        )
+        (left_out, right_out)
     }
 }
 
@@ -361,7 +315,6 @@ impl DecisionTreeNode {
 mod tests {
     use super::*;
     use crate::testing::is_sorted;
-    use crate::utils::sorted_samples;
     use assert_approx_eq::*;
     use ndarray::{arr1, arr2, s, Array, Array1, Axis};
     use ndarray_rand::rand_distr::Uniform;
@@ -396,10 +349,8 @@ mod tests {
         let y_view = y.view();
 
         let node = DecisionTreeNode::default();
-        let samples = (start..stop).collect::<Vec<usize>>();
-        let xy_sorted: Vec<(f64, f64)> = samples
-            .iter()
-            .map(|&i| (X_view[[i, feature]], y_view[i]))
+        let xy_sorted: Vec<(f64, f64, usize)> = (start..stop)
+            .map(|i| (X_view[[i, feature]], y_view[i], i))
             .collect();
 
         let (split, split_val, gain, _) =
@@ -417,10 +368,11 @@ mod tests {
         let y = Array1::<f64>::zeros(100);
 
         let node = DecisionTreeNode::default();
-        let mut samples = (0..100).collect::<Vec<usize>>();
-        samples.sort_unstable_by(|a, b| X[[*a, 0]].partial_cmp(&X[[*b, 0]]).unwrap());
+        let mut indices = (0..100).collect::<Vec<usize>>();
+        indices.sort_unstable_by(|&a, &b| X[[a, 0]].partial_cmp(&X[[b, 0]]).unwrap());
 
-        let xy_sorted: Vec<(f64, f64)> = samples.iter().map(|&i| (X[[i, 0]], y[i])).collect();
+        let xy_sorted: Vec<(f64, f64, usize)> =
+            indices.iter().map(|&i| (X[[i, 0]], y[i], i)).collect();
 
         let (split, split_val, gain, sum) = node.find_best_split(&xy_sorted, 0.);
         assert_eq!((split, split_val, gain, sum), (0, 0., 0., 0.));
@@ -446,11 +398,17 @@ mod tests {
         let mut single_samples: Vec<usize> =
             (0..n_samples).map(|_| rng.random_range(0..100)).collect();
         single_samples.sort();
-        let mut samples = sorted_samples(&X, &single_samples);
-        let mut xy_sorted_vecs: Vec<Vec<(f64, f64)>> = samples
-            .iter()
-            .enumerate()
-            .map(|(f, s)| s.iter().map(|&i| (X[[i, f]], y[i])).collect())
+
+        // Build xy_sorted directly by sorting (x, y, row) triples per feature.
+        let mut xy_sorted_vecs: Vec<Vec<(f64, f64, usize)>> = (0..d)
+            .map(|f| {
+                let mut v: Vec<(f64, f64, usize)> = single_samples
+                    .iter()
+                    .map(|&i| (X[[i, f]], y[i], i))
+                    .collect();
+                v.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                v
+            })
             .collect();
 
         let split = X
@@ -459,9 +417,8 @@ mod tests {
             .iter()
             .filter(|&&x| x <= best_split_val)
             .count();
-        let samples_references: Vec<&mut [usize]> =
-            samples.iter_mut().map(|x| x.as_mut_slice()).collect();
-        let xy_sorted_refs: Vec<&mut [(f64, f64)]> = xy_sorted_vecs
+
+        let xy_sorted_refs: Vec<&mut [(f64, f64, usize)]> = xy_sorted_vecs
             .iter_mut()
             .map(|v| v.as_mut_slice())
             .collect();
@@ -472,8 +429,7 @@ mod tests {
         let node = DecisionTreeNode::default();
         let mut all_false = vec![false; X.nrows()];
 
-        let (left, right, _left_xy, _right_xy) = node.split_samples(
-            samples_references,
+        let (left, right) = node.split_samples(
             xy_sorted_refs,
             split,
             &all_false_but_first,
@@ -485,21 +441,24 @@ mod tests {
         assert!(right.len() == d);
 
         for (feature, (l, r)) in left.into_iter().zip(right).enumerate().skip(1) {
-            assert!(is_sorted(&X.column(feature).select(Axis(0), l)));
-            assert!(is_sorted(&X.column(feature).select(Axis(0), r)));
+            let l_rows: Vec<usize> = l.iter().map(|t| t.2).collect();
+            let r_rows: Vec<usize> = r.iter().map(|t| t.2).collect();
 
-            for idx in l.iter() {
-                assert!(X[[*idx, best_feature]] <= best_split_val);
+            assert!(is_sorted(&X.column(feature).select(Axis(0), &l_rows)));
+            assert!(is_sorted(&X.column(feature).select(Axis(0), &r_rows)));
+
+            for row in l_rows.iter() {
+                assert!(X[[*row, best_feature]] <= best_split_val);
             }
 
-            for idx in r.iter() {
-                assert!(X[[*idx, best_feature]] > best_split_val);
+            for row in r_rows.iter() {
+                assert!(X[[*row, best_feature]] > best_split_val);
             }
 
-            let mut all_samples = [l, r].concat();
-            all_samples.sort();
+            let mut all_rows = [l_rows, r_rows].concat();
+            all_rows.sort();
 
-            assert_eq!(all_samples, single_samples);
+            assert_eq!(all_rows, single_samples);
         }
     }
 }
