@@ -118,7 +118,7 @@ jobs:
           find dist -type f -exec mv {} dist/ \;
           find dist -mindepth 1 -type d -empty -delete
 
-      - uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
         with:
           repository_url: https://test.pypi.org/legacy/
   
@@ -142,7 +142,7 @@ jobs:
           find dist -type f -exec mv {} dist/ \;
           find dist -mindepth 1 -type d -empty -delete
 
-      - uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
 
   release-crates-io:
     runs-on: ubuntu-latest
