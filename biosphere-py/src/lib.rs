@@ -7,6 +7,6 @@ use pyo3::prelude::*;
 fn biosphere(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<decision_tree::DecisionTree>()?;
     module.add_class::<random_forest::RandomForest>()?;
-    
+
     Ok(())
 }

@@ -1,8 +1,8 @@
+use crate::utils::PyMaxFeatures;
 use biosphere::DecisionTree as BioDecisionTree;
 use biosphere::DecisionTreeParameters;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::{PyResult, Python};
-use crate::utils::PyMaxFeatures;
 use pyo3::{pyclass, pymethods, Bound};
 
 #[pyclass]
@@ -49,7 +49,11 @@ impl DecisionTree {
     }
 
     #[allow(non_snake_case)]
-    pub fn predict<'py>(&self, py: Python<'py>, X: PyReadonlyArray2<f64>) -> Bound<'py, PyArray1<f64>> {
+    pub fn predict<'py>(
+        &self,
+        py: Python<'py>,
+        X: PyReadonlyArray2<f64>,
+    ) -> Bound<'py, PyArray1<f64>> {
         let X_array = X.as_array();
         self.tree.predict(&X_array).into_pyarray(py)
     }

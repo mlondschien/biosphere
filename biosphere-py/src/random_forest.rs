@@ -55,7 +55,11 @@ impl RandomForest {
     }
 
     #[allow(non_snake_case)]
-    pub fn predict<'py>(&self, py: Python<'py>, X: PyReadonlyArray2<f64>) -> Bound<'py, PyArray1<f64>>{
+    pub fn predict<'py>(
+        &self,
+        py: Python<'py>,
+        X: PyReadonlyArray2<f64>,
+    ) -> Bound<'py, PyArray1<f64>> {
         let X_array = X.as_array();
         self.forest.predict(&X_array).into_pyarray(py)
     }
