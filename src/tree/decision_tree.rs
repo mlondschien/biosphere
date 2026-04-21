@@ -5,6 +5,7 @@ use ndarray::{Array1, ArrayView1, ArrayView2};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct DecisionTree {
     decision_tree_parameters: DecisionTreeParameters,
     node: DecisionTreeNode,
@@ -121,4 +122,25 @@ mod tests {
         // perfectly replicate these with another decision tree.
         assert_eq!(predictions - another_predictions, Array1::<f64>::zeros(150));
     }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_serialized_deserialized_tree_predicts_same_as_fit_tree() {
+    let data = load_iris();
+    let X = data.slice(s![.., 0..4]);
+    let y = data.slice(s![.., 4]);
+
+    let parameters = DecisionTreeParameters::default()
+        .with_max_depth(Some(4))
+        .with_max_features(MaxFeatures::Value(2))
+        .with_random_state(123);
+    let mut tree = DecisionTree::new(parameters);
+    tree.fit(&X, &y);
+    let predictions = tree.predict(&X);
+
+    let bytes = postcard::to_stdvec(&tree).unwrap();
+    let restored_tree: DecisionTree = postcard::from_bytes(bytes.as_slice()).unwrap();
+
+    assert_eq!(predictions, restored_tree.predict(&X));
 }

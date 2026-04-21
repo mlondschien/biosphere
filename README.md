@@ -6,6 +6,35 @@ Random forests with a runtime of `O(n d log(n) + n_estimators d n max_depth)` in
 
 `biosphere` is available as a rust crate and as a Python package.
 
+## Serialize / deserialize a `DecisionTree`
+
+Enable the `serde` feature and choose a serde format (here: `postcard`):
+
+```toml
+# Cargo.toml
+biosphere = { version = "0.4.2", features = ["serde"] }
+postcard = { version = "1", features = ["use-std"] }
+```
+
+```rust
+use biosphere::DecisionTree;
+
+let X = ndarray::array![[0.0], [1.0], [2.0], [3.0]];
+let y = ndarray::array![0.0, 0.0, 1.0, 1.0];
+
+let mut tree = DecisionTree::default();
+tree.fit(&X.view(), &y.view());
+
+// serialize and deserialize the tree
+let bytes = postcard::to_stdvec(&tree).unwrap();
+// deserialize the tree from bytes
+let restored: DecisionTree = postcard::from_bytes(&bytes).unwrap();
+
+assert_eq!(tree.predict(&X.view()), restored.predict(&X.view()));
+```
+
+In this repo you can run: `cargo run --example decision_tree_serde --features serde`.
+
 ## Benchmarks
 
 Ran on an M1 Pro with `n_jobs=4`. Wall-time to fit a Random Forest including OOB score with 400 trees to

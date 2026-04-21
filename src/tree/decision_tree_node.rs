@@ -8,6 +8,7 @@ static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 static FEATURE_THRESHOLD: f64 = 1e-14;
 
 #[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct DecisionTreeNode {
     pub left_child: Option<Box<DecisionTreeNode>>,
     pub right_child: Option<Box<DecisionTreeNode>>,
