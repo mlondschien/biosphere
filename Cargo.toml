@@ -1,12 +1,15 @@
 [package]
 name = "biosphere"
 description = "Simple, fast random forests."
-authors = ["Malte Londschien <malte@londschien.ch>"]
+authors = [
+    "Malte Londschien <malte@londschien.ch>",
+    "Pascal Hertleif <pascal@softleif.se>"
+]
 repository = "https://github.com/mlondschien/biosphere/"
 readme = "README.md"
 license = "BSD-3-Clause"
-version = "0.4.2"
-edition = "2021"
+version = "0.5.0"
+edition = "2024"
 exclude = ["/.github", "/changeforest-py", ".pre-commit-config.yaml", ".gitignore"]
 keywords = ["machine-learning", "random-forest", "decision-tree", "ensemble", "tree"]
 
@@ -14,9 +17,17 @@ keywords = ["machine-learning", "random-forest", "decision-tree", "ensemble", "t
 name = "biosphere"
 
 [dependencies]
-ndarray = "0.17.1"
-rand = "0.9"
+ndarray = "0.17.2"
+rand = "0.9.2"
 rayon = "1.11"
+serde = { version = "1.0.228", optional = true, features = [ "derive" ] }
+wgpu = { version = "28", optional = true }
+bytemuck = { version = "1", optional = true, features = ["derive"] }
+pollster = { version = "0.4", optional = true }
+
+[features]
+serde = ["dep:serde", "dep:bytemuck"]
+gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
 
 [profile.bench]
 incremental = true
@@ -30,6 +41,7 @@ csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.8"
 assert_approx_eq = "1.1"
+postcard = { version = "1", features = ["use-std"] }
 
 [[bench]]
 name = "bench_utils"
@@ -42,3 +54,17 @@ harness = false
 [[bench]]
 name = "bench_tree"
 harness = false
+
+[[test]]
+name = "flat_forest_serde"
+required-features = ["serde"]
+
+[[bench]]
+name = "bench_tree_serde"
+harness = false
+required-features = ["serde"]
+
+[[bench]]
+name = "bench_gpu"
+harness = false
+required-features = ["gpu"]

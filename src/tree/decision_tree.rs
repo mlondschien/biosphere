@@ -1,10 +1,31 @@
-use crate::tree::decision_tree_node::DecisionTreeNode;
 use crate::tree::DecisionTreeParameters;
+use crate::tree::decision_tree_node::DecisionTreeNode;
 use crate::utils::sorted_samples;
 use ndarray::{Array1, ArrayView1, ArrayView2};
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
+/// A single decision tree for regression or binary classification.
+///
+/// Splits features greedily to minimise impurity. Useful on its own for
+/// interpretable models; most users will prefer [`RandomForest`], which
+/// ensembles many trees for lower variance.
+///
+/// ```rust
+/// use biosphere::{DecisionTree, DecisionTreeParameters};
+/// use ndarray::array;
+///
+/// let X = array![[0.0, 1.0], [1.0, 0.0]];
+/// let y = array![0.0, 1.0];
+///
+/// let mut tree = DecisionTree::new(DecisionTreeParameters::default());
+/// tree.fit_with_samples(&X.view(), &y.view(), &[0, 1]);
+/// let predictions = tree.predict(&X.view());
+/// ```
+///
+/// [`RandomForest`]: crate::RandomForest
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct DecisionTree {
     decision_tree_parameters: DecisionTreeParameters,
     node: DecisionTreeNode,
@@ -51,6 +72,8 @@ impl DecisionTree {
 
         let n_samples = samples[0].len();
         let mut all_false = vec![false; X.nrows()];
+        let mut feature_order = Vec::with_capacity(X.ncols());
+        let mut right_scratch = Vec::with_capacity(n_samples);
 
         self.node.split(
             X,
@@ -59,6 +82,8 @@ impl DecisionTree {
             n_samples,
             vec![false; X.ncols()],
             &mut all_false,
+            &mut feature_order,
+            &mut right_scratch,
             sum,
             &mut rng,
             0,
@@ -68,10 +93,14 @@ impl DecisionTree {
 
     pub fn predict(&self, X: &ArrayView2<f64>) -> Array1<f64> {
         let mut predictions = Array1::<f64>::zeros(X.nrows());
-        for row in 0..X.nrows() {
-            predictions[row] = self.predict_row(&X.row(row));
-        }
+        self.predict_into(X, &mut predictions);
         predictions
+    }
+
+    pub fn predict_into(&self, X: &ArrayView2<f64>, out: &mut Array1<f64>) {
+        for row in 0..X.nrows() {
+            out[row] = self.predict_row(&X.row(row));
+        }
     }
 
     pub fn predict_row(&self, X: &ArrayView1<f64>) -> f64 {
@@ -90,6 +119,10 @@ impl DecisionTree {
     pub fn fit(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) {
         let samples: Vec<usize> = (0..X.nrows()).collect();
         self.fit_with_samples(X, y, &samples);
+    }
+
+    pub(crate) fn root(&self) -> &DecisionTreeNode {
+        &self.node
     }
 }
 
@@ -121,4 +154,28 @@ mod tests {
         // perfectly replicate these with another decision tree.
         assert_eq!(predictions - another_predictions, Array1::<f64>::zeros(150));
     }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_serialized_deserialized_tree_predicts_same_as_fit_tree() {
+    use crate::{MaxFeatures, testing::load_iris};
+    use ndarray::s;
+
+    let data = load_iris();
+    let X = data.slice(s![.., 0..4]);
+    let y = data.slice(s![.., 4]);
+
+    let parameters = DecisionTreeParameters::default()
+        .with_max_depth(Some(4))
+        .with_max_features(MaxFeatures::Value(2))
+        .with_random_state(123);
+    let mut tree = DecisionTree::new(parameters);
+    tree.fit(&X, &y);
+    let predictions = tree.predict(&X);
+
+    let bytes = postcard::to_stdvec(&tree).unwrap();
+    let restored_tree: DecisionTree = postcard::from_bytes(bytes.as_slice()).unwrap();
+
+    assert_eq!(predictions, restored_tree.predict(&X));
 }

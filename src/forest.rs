@@ -3,13 +3,28 @@ use crate::utils::{
     argsort, oob_samples_from_weights, sample_indices_from_weights, sample_weights,
 };
 use ndarray::{Array1, ArrayView1, ArrayView2};
-use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon::ThreadPoolBuilder;
 
+/// Configuration for a [`RandomForest`].
+///
+/// Use the builder methods to customise the forest. Most users only need to
+/// change `n_estimators` and `seed`; all other parameters have sensible defaults.
+///
+/// ```rust
+/// use biosphere::{RandomForestParameters, MaxFeatures};
+///
+/// let params = RandomForestParameters::default()
+///     .with_n_estimators(200)
+///     .with_seed(42)
+///     .with_max_depth(Some(10))
+///     .with_max_features(MaxFeatures::Sqrt)
+///     .with_n_jobs(Some(-1)); // use all CPU cores for training
+/// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct RandomForestParameters {
     decision_tree_parameters: DecisionTreeParameters,
     n_estimators: usize,
@@ -96,9 +111,46 @@ impl RandomForestParameters {
     }
 }
 
+/// A random forest ensemble for regression or binary classification.
+///
+/// Trains many [`DecisionTree`]s on bootstrap samples of your data and averages
+/// their predictions. More trees reduce variance at diminishing returns; 100–500
+/// is usually enough.
+///
+/// ```rust
+/// use biosphere::{RandomForest, RandomForestParameters};
+/// use ndarray::array;
+///
+/// let X = array![[0.0, 1.0], [1.0, 0.0]];
+/// let y = array![0.0, 1.0];
+///
+/// let mut forest = RandomForest::new(RandomForestParameters::default());
+/// forest.fit(&X.view(), &y.view());
+///
+/// let predictions = forest.predict(&X.view()); // Array1<f64>, one value per row
+/// ```
+///
+/// For GPU inference, convert to a [`FlatForest`] first.
+///
+/// [`FlatForest`]: crate::FlatForest
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct RandomForest {
     random_forest_parameters: RandomForestParameters,
     trees: Vec<DecisionTree>,
+}
+
+fn build_thread_pool(n_jobs: Option<i32>) -> rayon::ThreadPool {
+    let mut builder = rayon::ThreadPoolBuilder::new();
+    let n_threads = match n_jobs {
+        Some(n) if n >= 1 => Some(n as usize),
+        Some(_) => None, // -1 = all cores
+        None => Some(1),
+    };
+    if let Some(n) = n_threads {
+        builder = builder.num_threads(n);
+    }
+    builder.build().expect("failed to build rayon thread pool")
 }
 
 impl Default for RandomForest {
@@ -115,36 +167,30 @@ impl RandomForest {
         }
     }
 
+    pub(crate) fn trees(&self) -> &[DecisionTree] {
+        &self.trees
+    }
+
     pub fn predict(&self, X: &ArrayView2<f64>) -> Array1<f64> {
         let mut predictions = Array1::<f64>::zeros(X.nrows());
+        let mut scratch = Array1::<f64>::zeros(X.nrows());
 
         for tree in &self.trees {
-            predictions = predictions + tree.predict(X);
+            tree.predict_into(X, &mut scratch);
+            predictions += &scratch;
         }
 
         predictions / self.trees.len() as f64
     }
 
+    /// Fit the forest on training data.
+    ///
+    /// **Reproducibility note (v0.5):** Each tree's feature-selection seed is now derived
+    /// directly from its bootstrap seed rather than from a secondary RNG draw. Forests
+    /// trained with the same seed as v0.4.x will produce different trees starting from
+    /// v0.5.0.
     pub fn fit(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) {
-        let mut thread_pool_builder = ThreadPoolBuilder::new();
-
-        // If n_jobs = 1 or None, use a single process. If n_jobs = -1, use all processes.
-        let n_jobs_usize = match self.random_forest_parameters.n_jobs {
-            Some(n_jobs) => {
-                if n_jobs >= 1 {
-                    Some(n_jobs as usize)
-                } else {
-                    None
-                }
-            }
-            None => Some(1),
-        };
-
-        if let Some(n_jobs) = n_jobs_usize {
-            thread_pool_builder = thread_pool_builder.num_threads(n_jobs);
-        }
-
-        let thread_pool = thread_pool_builder.build().unwrap();
+        let thread_pool = build_thread_pool(self.random_forest_parameters.n_jobs);
 
         let indices: Vec<usize> = (0..X.ncols()).collect();
         let indices: Vec<Vec<usize>> = thread_pool.install(|| {
@@ -190,26 +236,19 @@ impl RandomForest {
         })
     }
 
+    /// Fit the forest and return out-of-bag predictions for each training sample.
+    ///
+    /// Each element of the returned array is the average prediction of the trees
+    /// for which that sample was out-of-bag. Samples that were in-bag for every
+    /// estimator (i.e. never left out during bootstrap sampling) will have
+    /// `f64::NAN` as their OOB prediction.
+    ///
+    /// **Reproducibility note (v0.5):** Each tree's feature-selection seed is now derived
+    /// directly from its bootstrap seed rather than from a secondary RNG draw. Forests
+    /// trained with the same seed as v0.4.x will produce different trees starting from
+    /// v0.5.0.
     pub fn fit_predict_oob(&mut self, X: &ArrayView2<f64>, y: &ArrayView1<f64>) -> Array1<f64> {
-        let mut thread_pool_builder = ThreadPoolBuilder::new();
-
-        // If n_jobs = 1 or None, use a single process. If n_jobs = -1, use all processes.
-        let n_jobs_usize = match self.random_forest_parameters.n_jobs {
-            Some(n_jobs) => {
-                if n_jobs >= 1 {
-                    Some(n_jobs as usize)
-                } else {
-                    None
-                }
-            }
-            None => Some(1),
-        };
-
-        if let Some(n_jobs) = n_jobs_usize {
-            thread_pool_builder = thread_pool_builder.num_threads(n_jobs);
-        }
-
-        let thread_pool = thread_pool_builder.build().unwrap();
+        let thread_pool = build_thread_pool(self.random_forest_parameters.n_jobs);
 
         let indices: Vec<usize> = (0..X.ncols()).collect();
 
@@ -233,11 +272,8 @@ impl RandomForest {
                 .into_par_iter()
                 .map(move |seed| {
                     let mut rng = StdRng::seed_from_u64(seed);
-                    let mut tree = DecisionTree::new(
-                        tree_parameters
-                            .clone()
-                            .with_random_state(rng.random::<u64>()),
-                    );
+                    let mut tree =
+                        DecisionTree::new(tree_parameters.clone().with_random_state(seed));
 
                     let weights = sample_weights(X.nrows(), &mut rng);
                     let mut samples = sample_indices_from_weights(&weights, &indices);
@@ -268,33 +304,15 @@ impl RandomForest {
             }
         }
 
-        oob_predictions * oob_n_estimators.mapv(|x| 1. / x as f64)
+        Array1::from_iter(
+            oob_predictions
+                .iter()
+                .zip(oob_n_estimators.iter())
+                .map(
+                    |(&pred, &n)| {
+                        if n == 0 { f64::NAN } else { pred / n as f64 }
+                    },
+                ),
+        )
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::testing::load_iris;
-//     use ndarray::s;
-
-//     #[test]
-//     fn test_random_forest_predict() {
-//         let data = load_iris();
-//         let X = data.slice(s![0..100, 0..4]);
-//         let y = data.slice(s![0..100, 4]);
-
-//         let random_forest_parameters = RandomForestParameters::default();
-//         let forest = RandomForest::new(&X, &y, random_forest_parameters);
-
-//         let predictions = forest.predict();
-//         let mse = (&predictions - &y).mapv(|x| x * x).sum();
-//         assert!(
-//             mse < 0.1,
-//             "mse {} \ny={:?}\npredictions={:?}",
-//             mse,
-//             y,
-//             predictions
-//         );
-//     }
-// }

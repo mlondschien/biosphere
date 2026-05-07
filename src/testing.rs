@@ -13,7 +13,5 @@ pub fn is_sorted(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> bool {
 pub fn load_iris() -> Array2<f64> {
     let file = File::open("testdata/iris.csv").unwrap();
     let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
-    let data = reader.deserialize_array2::<f64>((150, 5)).unwrap();
-
-    data
+    reader.deserialize_array2::<f64>((150, 5)).unwrap()
 }

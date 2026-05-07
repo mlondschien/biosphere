@@ -13,6 +13,63 @@ pub enum MaxFeatures {
     Callable(fn(usize) -> usize),
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for MaxFeatures {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(serde::Serialize)]
+        enum MaxFeaturesRepr {
+            None,
+            Fraction(f64),
+            Value(usize),
+            Sqrt,
+        }
+
+        let repr = match self {
+            MaxFeatures::None => MaxFeaturesRepr::None,
+            MaxFeatures::Fraction(fraction) => MaxFeaturesRepr::Fraction(*fraction),
+            MaxFeatures::Value(value) => MaxFeaturesRepr::Value(*value),
+            MaxFeatures::Sqrt => MaxFeaturesRepr::Sqrt,
+            MaxFeatures::Callable(_) => {
+                return Err(serde::ser::Error::custom(
+                    "MaxFeatures::Callable cannot be serialized",
+                ));
+            }
+        };
+
+        serde::Serialize::serialize(&repr, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MaxFeatures {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        enum MaxFeaturesRepr {
+            None,
+            Fraction(f64),
+            Value(usize),
+            Sqrt,
+            Callable,
+        }
+
+        match <MaxFeaturesRepr as serde::Deserialize>::deserialize(deserializer)? {
+            MaxFeaturesRepr::None => Ok(MaxFeatures::None),
+            MaxFeaturesRepr::Fraction(fraction) => Ok(MaxFeatures::Fraction(fraction)),
+            MaxFeaturesRepr::Value(value) => Ok(MaxFeatures::Value(value)),
+            MaxFeaturesRepr::Sqrt => Ok(MaxFeatures::Sqrt),
+            MaxFeaturesRepr::Callable => Err(serde::de::Error::custom(
+                "MaxFeatures::Callable cannot be deserialized",
+            )),
+        }
+    }
+}
+
 impl MaxFeatures {
     pub fn from_n_features(&self, n_features: usize) -> usize {
         let value = match self {
@@ -28,6 +85,7 @@ impl MaxFeatures {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct DecisionTreeParameters {
     // Maximum depth of the tree. If `None`, nodes are expanded until all leaves are
     // pure or contain fewer than `min_samples_split` samples.

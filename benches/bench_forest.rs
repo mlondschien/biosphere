@@ -1,13 +1,13 @@
 use biosphere::{RandomForest, RandomForestParameters};
 
 #[cfg(test)]
-use criterion::{criterion_group, criterion_main, Criterion};
-use ndarray::{s, Array, Array1, Array2};
-use ndarray_rand::rand_distr::{Bernoulli, Uniform};
+use criterion::{Criterion, criterion_group, criterion_main};
+use ndarray::{Array, Array1, Array2, s};
 use ndarray_rand::RandomExt;
-use rand::rngs::StdRng;
+use ndarray_rand::rand_distr::{Bernoulli, Uniform};
 use rand::Rng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 #[allow(non_snake_case)]
 pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>) {
@@ -22,13 +22,8 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
             ));
         } else {
             X.slice_mut(s![.., i]).assign(
-                &Array::random_using((n,), Bernoulli::new(0.3).unwrap(), rng).mapv(|x| {
-                    if x {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }),
+                &Array::random_using((n,), Bernoulli::new(0.3).unwrap(), rng)
+                    .mapv(|x| if x { 1.0 } else { 0.0 }),
             );
         }
     }

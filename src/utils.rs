@@ -3,12 +3,14 @@ use rand::Rng;
 
 /// Compute `indices` such that `data.select(indices)` is sorted.
 ///
+/// NaN values, if present, are sorted after all finite values (IEEE 754 total order).
+///
 /// Parameters
 /// ----------
-/// data: Array1<f64> or ArrayView1<f64>
+/// data: `Array1<f64>` or `ArrayView1<f64>`
 pub fn argsort(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Vec<usize> {
     let mut indices = (0..data.len()).collect::<Vec<usize>>();
-    indices.sort_unstable_by(|a, b| data[*a].partial_cmp(&data[*b]).unwrap());
+    indices.sort_unstable_by(|a, b| data[*a].total_cmp(&data[*b]));
     indices
 }
 
@@ -48,6 +50,9 @@ pub fn oob_samples_from_weights(weights: &[usize]) -> Vec<usize> {
     oob_samples
 }
 
+/// For each feature column, return `samples` sorted by ascending feature value.
+///
+/// NaN values, if present, are sorted after all finite values (IEEE 754 total order).
 pub fn sorted_samples(
     X: &ArrayBase<impl Data<Elem = f64>, Ix2>,
     samples: &[usize],
@@ -56,7 +61,7 @@ pub fn sorted_samples(
 
     for idx in 0..X.ncols() {
         let mut samples_ = samples.to_vec();
-        samples_.sort_by(|a, b| X[[*a, idx]].partial_cmp(&X[[*b, idx]]).unwrap());
+        samples_.sort_by(|a, b| X[[*a, idx]].total_cmp(&X[[*b, idx]]));
         samples_out.push(samples_);
     }
     samples_out
@@ -67,10 +72,10 @@ mod tests {
     use super::*;
     use crate::testing::is_sorted;
     use ndarray::{Array, Axis};
-    use ndarray_rand::rand_distr::Uniform;
     use ndarray_rand::RandomExt;
-    use rand::rngs::StdRng;
+    use ndarray_rand::rand_distr::Uniform;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     #[test]
     fn test_argsort() {
@@ -108,10 +113,8 @@ mod tests {
 
         let samples = sample_indices_from_weights(&weights, &indices);
 
-        for feature in 0..X.ncols() {
-            assert!(is_sorted(
-                &X.column(feature).select(Axis(0), &samples[feature])
-            ));
+        for (feature, sample) in samples.iter().enumerate().take(X.ncols()) {
+            assert!(is_sorted(&X.column(feature).select(Axis(0), sample)));
         }
     }
 }

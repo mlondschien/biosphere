@@ -1,13 +1,15 @@
 use crate::tree::DecisionTreeParameters;
 use ndarray::{ArrayView1, ArrayView2};
-use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::seq::SliceRandom;
 use std::debug_assert;
 
 static MIN_GAIN_TO_SPLIT: f64 = 1e-12;
 static FEATURE_THRESHOLD: f64 = 1e-14;
+static SPLIT_VALUE_THRESHOLD: f64 = 1e-12;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct DecisionTreeNode {
     pub left_child: Option<Box<DecisionTreeNode>>,
     pub right_child: Option<Box<DecisionTreeNode>>,
@@ -31,15 +33,19 @@ impl DecisionTreeNode {
         mut constant_features: Vec<bool>,
         // Used in split_samples. Passed here to avoid reallocating.
         all_false: &mut [bool],
+        // Scratch buffer for feature order; pre-allocated at root call site.
+        feature_order: &mut Vec<usize>,
+        // Scratch buffer used inside split_samples; pre-allocated at root call site.
+        right_scratch: &mut Vec<usize>,
         sum: f64,
         rng: &mut impl Rng,
         current_depth: usize,
         parameters: &DecisionTreeParameters,
     ) {
-        if let Some(depth) = parameters.max_depth {
-            if current_depth >= depth {
-                return self.leaf_node(sum / n_samples as f64);
-            }
+        if let Some(depth) = parameters.max_depth
+            && current_depth >= depth
+        {
+            return self.leaf_node(sum / n_samples as f64);
         }
 
         if n_samples <= parameters.min_samples_split {
@@ -52,7 +58,8 @@ impl DecisionTreeNode {
         let mut best_feature = 0;
         let mut left_sum_at_best_split = 0.;
 
-        let mut feature_order = (0..X.ncols()).collect::<Vec<usize>>();
+        feature_order.clear();
+        feature_order.extend(0..X.ncols());
         feature_order.shuffle(rng);
 
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
@@ -97,6 +104,7 @@ impl DecisionTreeNode {
             &constant_features,
             best_feature,
             all_false,
+            right_scratch,
         );
 
         let mut left = DecisionTreeNode::default();
@@ -107,6 +115,8 @@ impl DecisionTreeNode {
             best_split,
             constant_features.clone(),
             all_false,
+            feature_order,
+            right_scratch,
             left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -122,6 +132,8 @@ impl DecisionTreeNode {
             n_samples - best_split,
             constant_features,
             all_false,
+            feature_order,
+            right_scratch,
             sum - left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -155,7 +167,7 @@ impl DecisionTreeNode {
             cumsum += y[samples[s - 1]];
 
             // Hackedy hack.
-            if X[[samples[s], feature]] - X[[samples[s - 1], feature]] < 1e-12 {
+            if X[[samples[s], feature]] - X[[samples[s - 1], feature]] < SPLIT_VALUE_THRESHOLD {
                 continue;
             }
 
@@ -214,6 +226,9 @@ impl DecisionTreeNode {
         best_feature: usize,
         // best_split_val: f64,
         all_false: &mut [bool],
+        // Scratch buffer for the first non-constant, non-best-feature right partition.
+        // Pre-allocated at the root call site to avoid per-node heap allocation.
+        right_scratch: &mut Vec<usize>,
     ) -> (Vec<&'a mut [usize]>, Vec<&'a mut [usize]>) {
         // We replace lookups & comparisons X[[idx, best_feature]] > best_split_val
         // with a lookup all_false[idx]. This is faster. Since best_feature was split
@@ -222,12 +237,22 @@ impl DecisionTreeNode {
             all_false[*s] = true;
         }
 
+        let n_features = samples.len();
         let n = samples[best_feature].len();
-        let mut new_samples_left = Vec::<&mut [usize]>::with_capacity(samples.len());
-        let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
+
+        // Pre-fill output vecs with empty-slice placeholders so we can write to
+        // any index directly (O(1)) instead of using Vec::insert (O(n_features)).
+        // Safety: the empty slice is never read before being overwritten; every
+        // slot is assigned exactly once during the loop or the deferred block.
+        let mut new_samples_left: Vec<&mut [usize]> = (0..n_features)
+            .map(|_| -> &mut [usize] { &mut [] })
+            .collect();
+        let mut new_samples_right: Vec<&mut [usize]> = (0..n_features)
+            .map(|_| -> &mut [usize] { &mut [] })
+            .collect();
 
         let mut first_left: &mut [usize] = &mut [];
-        let mut copy_of_first_right: Vec<usize> = Vec::with_capacity(n - split);
+        right_scratch.clear();
         let mut initialized = false;
         let mut index_of_first: usize = 0;
 
@@ -239,21 +264,20 @@ impl DecisionTreeNode {
         for (feature, sample_) in samples.into_iter().enumerate() {
             if feature == best_feature {
                 let (left, right) = sample_.split_at_mut(split);
-                new_samples_left.push(left);
-                new_samples_right.push(right);
+                new_samples_left[feature] = left;
+                new_samples_right[feature] = right;
                 continue;
             }
 
             if constant_features[feature] {
-                new_samples_left.push(&mut []);
-                new_samples_right.push(&mut []);
+                // Placeholders already set; nothing to do.
                 continue;
             }
 
             if !initialized {
                 let result = sample_.split_at_mut(split);
                 new_right = result.1;
-                copy_of_first_right.extend_from_slice(new_right);
+                right_scratch.extend_from_slice(new_right);
                 first_left = result.0;
                 index_of_first = feature;
                 initialized = true;
@@ -281,8 +305,8 @@ impl DecisionTreeNode {
             }
 
             let result = sample_.split_at_mut(split);
-            new_samples_left.push(result.0);
-            new_samples_right.push(new_right);
+            new_samples_left[feature] = result.0;
+            new_samples_right[feature] = new_right;
             new_right = result.1;
         }
 
@@ -302,17 +326,18 @@ impl DecisionTreeNode {
             }
 
             for idx in 0..(n - split) {
-                // if X[[copy_of_first_right[idx], best_feature]] > best_split_val {
-                if all_false[copy_of_first_right[idx]] {
-                    new_right[current_right] = copy_of_first_right[idx];
+                // if X[[right_scratch[idx], best_feature]] > best_split_val {
+                if all_false[right_scratch[idx]] {
+                    new_right[current_right] = right_scratch[idx];
                     current_right += 1;
                 } else {
-                    first_left[current_left] = copy_of_first_right[idx];
+                    first_left[current_left] = right_scratch[idx];
                     current_left += 1;
                 }
             }
-            new_samples_left.insert(index_of_first, first_left);
-            new_samples_right.insert(index_of_first, new_right);
+            // Direct index write — O(1), no shifting.
+            new_samples_left[index_of_first] = first_left;
+            new_samples_right[index_of_first] = new_right;
         }
 
         // Reset all_false to be all false.
@@ -330,11 +355,11 @@ mod tests {
     use crate::testing::is_sorted;
     use crate::utils::sorted_samples;
     use assert_approx_eq::*;
-    use ndarray::{arr1, arr2, s, Array, Array1, Axis};
-    use ndarray_rand::rand_distr::Uniform;
+    use ndarray::{Array, Array1, Axis, arr1, arr2, s};
     use ndarray_rand::RandomExt;
-    use rand::rngs::StdRng;
+    use ndarray_rand::rand_distr::Uniform;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
     use rstest::*;
 
     #[rstest]
@@ -385,7 +410,11 @@ mod tests {
 
         let node = DecisionTreeNode::default();
         let mut samples = (0..100).collect::<Vec<usize>>();
-        samples.sort_unstable_by(|a, b| X[[*a, 0]].partial_cmp(&X[[*b, 0]]).unwrap());
+        samples.sort_unstable_by(|a, b| {
+            let xa: f64 = X[[*a, 0]];
+            let xb: f64 = X[[*b, 0]];
+            xa.total_cmp(&xb)
+        });
 
         let (split, split_val, gain, sum) =
             node.find_best_split(&X.view(), &y.view(), 0, &samples, 0.);
@@ -426,6 +455,7 @@ mod tests {
 
         let node = DecisionTreeNode::default();
         let mut all_false = vec![false; X.nrows()];
+        let mut right_scratch = Vec::with_capacity(n_samples);
 
         let (left, right) = node.split_samples(
             samples_references,
@@ -433,6 +463,7 @@ mod tests {
             &all_false_but_first,
             best_feature,
             &mut all_false,
+            &mut right_scratch,
         );
 
         assert!(left.len() == d);
