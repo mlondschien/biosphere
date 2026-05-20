@@ -15,7 +15,7 @@ name = "biosphere"
 
 [dependencies]
 ndarray = "0.17.1"
-rand = "0.9"
+rand = "0.10"
 rayon = "1.11"
 
 [profile.bench]
