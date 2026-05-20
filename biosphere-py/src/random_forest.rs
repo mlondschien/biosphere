@@ -37,8 +37,8 @@ impl RandomForest {
             random_state,
             max_depth,
             max_features.value,
-            min_samples_split,
             min_samples_leaf,
+            min_samples_split,
             n_jobs,
         );
         Ok(RandomForest {

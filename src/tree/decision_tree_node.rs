@@ -18,6 +18,12 @@ pub struct DecisionTreeNode {
 
 impl DecisionTreeNode {
     fn leaf_node(&mut self, label: f64) {
+        // Ensure any previous split state is cleared. This matters when the same
+        // `DecisionTreeNode` instance is reused (e.g. refitting a tree).
+        self.left_child = None;
+        self.right_child = None;
+        self.feature_index = None;
+        self.feature_value = None;
         self.label = Some(label);
     }
 
@@ -75,8 +81,14 @@ impl DecisionTreeNode {
                 continue;
             }
 
-            let (split, split_val, gain, left_sum) =
-                self.find_best_split(X, y, feature, samples[feature], sum);
+            let (split, split_val, gain, left_sum) = self.find_best_split(
+                X,
+                y,
+                feature,
+                samples[feature],
+                sum,
+                parameters.min_samples_leaf,
+            );
 
             if gain > best_gain {
                 best_gain = gain;
@@ -141,8 +153,15 @@ impl DecisionTreeNode {
         feature: usize,
         samples: &[usize],
         sum: f64,
+        min_samples_leaf: usize,
     ) -> (usize, f64, f64, f64) {
         let n = samples.len();
+        // If we can't create two children with at least `min_samples_leaf` samples,
+        // no split is valid.
+        if n < 2 * min_samples_leaf {
+            return (0, 0., 0., 0.);
+        }
+
         let mut cumsum = 0.;
         let mut max_proxy_gain = 0.;
         let mut proxy_gain: f64;
@@ -370,6 +389,7 @@ mod tests {
             feature,
             &samples,
             y.slice(s![start..stop]).sum(),
+            1,
         );
 
         assert_eq!((expected_split, expected_split_val), (split, split_val));
@@ -388,7 +408,7 @@ mod tests {
         samples.sort_unstable_by(|a, b| X[[*a, 0]].partial_cmp(&X[[*b, 0]]).unwrap());
 
         let (split, split_val, gain, sum) =
-            node.find_best_split(&X.view(), &y.view(), 0, &samples, 0.);
+            node.find_best_split(&X.view(), &y.view(), 0, &samples, 0., 1);
         assert_eq!((split, split_val, gain, sum), (0, 0., 0., 0.));
     }
 
